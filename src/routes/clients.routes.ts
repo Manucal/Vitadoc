@@ -1,183 +1,96 @@
-import { Express, Request, Response } from 'express';
-import { db } from '../db';
-import { authenticateToken } from '../middleware/auth';
+import { Router, Response } from 'express';
+import { AuthRequest, authenticateToken } from '../middleware/auth';
+import { query } from '../config/database';
+import { v4 as uuidv4 } from 'uuid';
 
-export function setupClientsRoutes(app: Express) {
-  // Crear un nuevo cliente (SOLO ADMIN)
-  app.post('/api/clients', authenticateToken, async (req: Request, res: Response) => {
-    try {
-      // Verificar que sea admin
-      const adminCheck = await db.query(
-        'SELECT is_admin FROM users WHERE id = $1',
-        [req.userId]
-      );
+const router = Router();
 
-      if (!adminCheck.rows[0]?.is_admin) {
-        return res.status(403).json({ error: 'Solo administradores pueden crear clientes' });
-      }
-
-      const {
-        name,
-        email,
-        phone,
-        address,
-        city,
-        client_type,
-        subscription_plan,
-        max_users,
-        max_patients,
-      } = req.body;
-
-      const result = await db.query(
-        `INSERT INTO clients (
-          name, email, phone, address, city, 
-          client_type, subscription_plan, max_users, max_patients, created_by
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        RETURNING *`,
-        [
-          name,
-          email,
-          phone,
-          address,
-          city,
-          client_type,
-          subscription_plan || 'basic',
-          max_users || 5,
-          max_patients || 1000,
-          req.userId,
-        ]
-      );
-
-      // Registrar en audit log
-      await db.query(
-        `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
-        VALUES ($1, $2, $3, $4, $5)`,
-        [req.userId, 'CREATE_CLIENT', 'client', result.rows[0].id, JSON.stringify({ name })]
-      );
-
-      res.status(201).json({
-        success: true,
-        message: 'Cliente creado exitosamente',
-        client: result.rows[0],
-      });
-    } catch (error) {
-      console.error('Error creando cliente:', error);
-      res.status(500).json({ error: 'Error al crear cliente' });
+// POST - Crear cliente
+router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, email, phone, clientType } = req.body;
+    
+    if (!name || !email || !clientType) {
+      return res.status(400).json({ error: 'Campos requeridos: name, email, clientType' });
     }
-  });
 
-  // Obtener todos los clientes (SOLO ADMIN)
-  app.get('/api/clients', authenticateToken, async (req: Request, res: Response) => {
-    try {
-      const adminCheck = await db.query(
-        'SELECT is_admin FROM users WHERE id = $1',
-        [req.userId]
-      );
-
-      if (!adminCheck.rows[0]?.is_admin) {
-        return res.status(403).json({ error: 'Acceso denegado' });
-      }
-
-      const result = await db.query(
-        'SELECT * FROM clients ORDER BY created_at DESC'
-      );
-
-      res.json({
-        success: true,
-        clients: result.rows,
-      });
-    } catch (error) {
-      console.error('Error obteniendo clientes:', error);
-      res.status(500).json({ error: 'Error al obtener clientes' });
+    const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
+    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Solo administradores pueden crear clientes' });
     }
-  });
 
-  // Obtener cliente por ID
-  app.get('/api/clients/:clientId', authenticateToken, async (req: Request, res: Response) => {
-    try {
-      const { clientId } = req.params;
-
-      const result = await db.query(
-        'SELECT * FROM clients WHERE id = $1',
-        [clientId]
-      );
-
-      if (!result.rows[0]) {
-        return res.status(404).json({ error: 'Cliente no encontrado' });
-      }
-
-      res.json({
-        success: true,
-        client: result.rows[0],
-      });
-    } catch (error) {
-      console.error('Error obteniendo cliente:', error);
-      res.status(500).json({ error: 'Error al obtener cliente' });
+    const existsResult = await query('SELECT id FROM tenants WHERE contact_email = $1', [email]);
+    if (existsResult.rows.length > 0) {
+      return res.status(409).json({ error: 'El cliente ya existe con este email' });
     }
-  });
 
-  // Actualizar cliente (SOLO ADMIN)
-  app.put('/api/clients/:clientId', authenticateToken, async (req: Request, res: Response) => {
-    try {
-      const adminCheck = await db.query(
-        'SELECT is_admin FROM users WHERE id = $1',
-        [req.userId]
-      );
+    const clientId = uuidv4();
+    const result = await query(
+      'INSERT INTO tenants (id, name, type, contact_email, contact_phone, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, type, contact_email, status, created_date',
+      [clientId, name, clientType, email, phone || null, 'active']
+    );
 
-      if (!adminCheck.rows[0]?.is_admin) {
-        return res.status(403).json({ error: 'Acceso denegado' });
-      }
+    res.status(201).json({ success: true, message: 'Cliente creado exitosamente', client: result.rows[0] });
+  } catch (error) {
+    console.error('Error al crear cliente:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
 
-      const { clientId } = req.params;
-      const { name, email, phone, address, city, status, subscription_plan, max_users } = req.body;
-
-      const result = await db.query(
-        `UPDATE clients 
-        SET name = $1, email = $2, phone = $3, address = $4, city = $5, 
-            status = $6, subscription_plan = $7, max_users = $8, updated_at = NOW()
-        WHERE id = $9
-        RETURNING *`,
-        [name, email, phone, address, city, status, subscription_plan, max_users, clientId]
-      );
-
-      if (!result.rows[0]) {
-        return res.status(404).json({ error: 'Cliente no encontrado' });
-      }
-
-      res.json({
-        success: true,
-        message: 'Cliente actualizado exitosamente',
-        client: result.rows[0],
-      });
-    } catch (error) {
-      console.error('Error actualizando cliente:', error);
-      res.status(500).json({ error: 'Error al actualizar cliente' });
+// GET - Listar todos los clientes
+router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
+    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Solo administradores pueden listar clientes' });
     }
-  });
 
-  // Eliminar cliente (SOLO ADMIN)
-  app.delete('/api/clients/:clientId', authenticateToken, async (req: Request, res: Response) => {
-    try {
-      const adminCheck = await db.query(
-        'SELECT is_admin FROM users WHERE id = $1',
-        [req.userId]
-      );
+    const result = await query('SELECT id, name, type, contact_email, contact_phone, status, created_date FROM tenants ORDER BY created_date DESC');
+    res.json({ success: true, clients: result.rows, total: result.rows.length });
+  } catch (error) {
+    console.error('Error al obtener clientes:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
 
-      if (!adminCheck.rows[0]?.is_admin) {
-        return res.status(403).json({ error: 'Acceso denegado' });
-      }
-
-      const { clientId } = req.params;
-
-      await db.query('DELETE FROM clients WHERE id = $1', [clientId]);
-
-      res.json({
-        success: true,
-        message: 'Cliente eliminado exitosamente',
-      });
-    } catch (error) {
-      console.error('Error eliminando cliente:', error);
-      res.status(500).json({ error: 'Error al eliminar cliente' });
+// GET - Obtener un cliente específico
+router.get('/:clientId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { clientId } = req.params;
+    
+    const result = await query('SELECT * FROM tenants WHERE id = $1', [clientId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
     }
-  });
-}
+
+    res.json({ success: true, client: result.rows[0] });
+  } catch (error) {
+    console.error('Error al obtener cliente:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+// DELETE - Eliminar cliente
+router.delete('/:clientId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { clientId } = req.params;
+
+    const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
+    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows[0].role !== 'admin') {
+      return res.status(403).json({ error: 'Solo administradores pueden eliminar clientes' });
+    }
+
+    const existsResult = await query('SELECT id FROM tenants WHERE id = $1', [clientId]);
+    if (existsResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cliente no encontrado' });
+    }
+
+    await query('DELETE FROM tenants WHERE id = $1', [clientId]);
+    res.json({ success: true, message: 'Cliente eliminado exitosamente' });
+  } catch (error) {
+    console.error('Error al eliminar cliente:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+export default router;

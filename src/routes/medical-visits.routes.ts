@@ -2,7 +2,9 @@ import express, { Response } from 'express';
 import { AuthRequest, authenticateToken } from '../middleware/auth';
 import { query } from '../config/database';
 
+
 const router = express.Router();
+
 
 // ============================================
 // CREATE - CREAR NUEVA CONSULTA MÉDICA
@@ -11,9 +13,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const { patientId, reasonForVisit } = req.body;
 
+
     if (!patientId || !reasonForVisit) {
       return res.status(400).json({ error: 'patientId y reasonForVisit son requeridos' });
     }
+
 
     // Verificar que el paciente existe y pertenece al tenant
     const patientResult = await query(
@@ -21,9 +25,11 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       [patientId, req.clientId]
     );
 
+
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Paciente no encontrado' });
     }
+
 
     // Crear consulta médica
     const visitResult = await query(
@@ -34,7 +40,9 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       [req.clientId, patientId, req.userId, reasonForVisit, 'draft', req.userId]
     );
 
+
     const visitId = visitResult.rows[0].id;
+
 
     // Crear registros vacíos para las secciones de la historia
     await query('INSERT INTO anamnesis (visit_id) VALUES ($1)', [visitId]);
@@ -44,6 +52,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     await query('INSERT INTO system_review (visit_id) VALUES ($1)', [visitId]);
     await query('INSERT INTO physical_exam (visit_id) VALUES ($1)', [visitId]);
     await query('INSERT INTO follow_up (visit_id) VALUES ($1)', [visitId]);
+
 
     res.status(201).json({
       success: true,
@@ -62,6 +71,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   }
 });
 
+
 // ============================================
 // READ - OBTENER TODAS LAS CONSULTAS DEL PACIENTE
 // ============================================
@@ -69,15 +79,18 @@ router.get('/patient/:patientId', authenticateToken, async (req: AuthRequest, re
   try {
     const { patientId } = req.params;
 
+
     // Verificar que el paciente existe y pertenece al tenant
     const patientResult = await query(
       'SELECT id FROM patients WHERE id = $1 AND tenant_id = $2',
       [patientId, req.clientId]
     );
 
+
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Paciente no encontrado' });
     }
+
 
     // Obtener consultas
     const result = await query(
@@ -87,6 +100,7 @@ router.get('/patient/:patientId', authenticateToken, async (req: AuthRequest, re
        ORDER BY visit_date DESC`,
       [patientId, req.clientId]
     );
+
 
     res.json({
       success: true,
@@ -99,6 +113,7 @@ router.get('/patient/:patientId', authenticateToken, async (req: AuthRequest, re
   }
 });
 
+
 // ============================================
 // READ - OBTENER DETALLE COMPLETO DE UNA CONSULTA
 // ============================================
@@ -106,10 +121,22 @@ router.get('/:visitId/details', authenticateToken, async (req: AuthRequest, res:
   try {
     const { visitId } = req.params;
 
-    // Obtener datos principales de la consulta
+
+    // Obtener datos principales de la consulta - ✅ AHORA CON TODOS LOS CAMPOS DEL PACIENTE
     const visitResult = await query(
       `SELECT mv.id, mv.visit_date, mv.reason_for_visit, mv.status,
-              p.id as patient_id, p.full_name, p.document_id,
+              p.id as patient_id, 
+              p.full_name, 
+              p.document_type,
+              p.document_id,
+              p.birth_date,
+              p.gender,
+              p.bloodtype,
+              p.phone,
+              p.email,
+              p.address,
+              p.city,
+              p.department,
               u.full_name as doctor_name
        FROM medical_visits mv
        JOIN patients p ON mv.patient_id = p.id
@@ -118,48 +145,74 @@ router.get('/:visitId/details', authenticateToken, async (req: AuthRequest, res:
       [visitId, req.clientId]
     );
 
+
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
 
+
     const visit = visitResult.rows[0];
 
-    // Obtener anamnesis
+
+    // ✅ OBTENER TODOS LOS DATOS
     const anamnesisResult = await query(
       'SELECT * FROM anamnesis WHERE visit_id = $1',
       [visitId]
     );
 
-    // Obtener antecedentes personales
+
     const personalHistoryResult = await query(
       'SELECT * FROM personal_history WHERE visit_id = $1',
       [visitId]
     );
 
-    // Obtener antecedentes familiares
+
     const familyHistoryResult = await query(
       'SELECT * FROM family_history WHERE visit_id = $1',
       [visitId]
     );
 
-    // Obtener signos vitales
+
     const vitalSignsResult = await query(
       'SELECT * FROM vital_signs WHERE visit_id = $1',
       [visitId]
     );
 
-    // Obtener diagnósticos
+
+    // ✅ AGREGAR ESTO - Revisión por sistemas
+    const systemReviewResult = await query(
+      'SELECT * FROM system_review WHERE visit_id = $1',
+      [visitId]
+    );
+
+
+    // ✅ AGREGAR ESTO - Examen físico
+    const physicalExamResult = await query(
+      'SELECT * FROM physical_exam WHERE visit_id = $1',
+      [visitId]
+    );
+
+
+    // ✅ AGREGAR ESTO - Seguimiento
+    const followUpResult = await query(
+      'SELECT * FROM follow_up WHERE visit_id = $1',
+      [visitId]
+    );
+
+
     const diagnosesResult = await query(
       'SELECT * FROM diagnoses WHERE visit_id = $1 ORDER BY created_date',
       [visitId]
     );
 
-    // Obtener tratamientos
+
     const treatmentsResult = await query(
       'SELECT * FROM treatments WHERE visit_id = $1 ORDER BY prescribed_date',
       [visitId]
     );
 
+
+    // ✅ RESPUESTA COMPLETA
     res.json({
       success: true,
       visit: {
@@ -169,8 +222,17 @@ router.get('/:visitId/details', authenticateToken, async (req: AuthRequest, res:
         status: visit.status,
         patient: {
           id: visit.patient_id,
-          fullName: visit.full_name,
-          documentId: visit.document_id
+          full_name: visit.full_name,
+          document_type: visit.document_type,
+          document_id: visit.document_id,
+          birth_date: visit.birth_date,
+          gender: visit.gender,
+          bloodtype: visit.bloodtype,
+          phone: visit.phone,
+          email: visit.email,
+          address: visit.address,
+          city: visit.city,
+          department: visit.department
         },
         doctor: {
           name: visit.doctor_name
@@ -179,6 +241,9 @@ router.get('/:visitId/details', authenticateToken, async (req: AuthRequest, res:
         personalHistory: personalHistoryResult.rows[0] || null,
         familyHistory: familyHistoryResult.rows[0] || null,
         vitalSigns: vitalSignsResult.rows[0] || null,
+        systemReview: systemReviewResult.rows[0] || null,
+        physicalExam: physicalExamResult.rows[0] || null,
+        followUp: followUpResult.rows[0] || null,
         diagnoses: diagnosesResult.rows,
         treatments: treatmentsResult.rows
       }
@@ -189,6 +254,7 @@ router.get('/:visitId/details', authenticateToken, async (req: AuthRequest, res:
   }
 });
 
+
 // ============================================
 // UPDATE - ACTUALIZAR ANAMNESIS
 // ============================================
@@ -197,15 +263,18 @@ router.put('/:visitId/anamnesis', authenticateToken, async (req: AuthRequest, re
     const { visitId } = req.params;
     const { currentIllness, symptomDuration, symptomSeverity, associatedSymptoms, relevantHistory } = req.body;
 
+
     // Verificar que la consulta existe
     const visitResult = await query(
       'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
       [visitId, req.clientId]
     );
 
+
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
+
 
     // Actualizar anamnesis
     await query(
@@ -219,6 +288,7 @@ router.put('/:visitId/anamnesis', authenticateToken, async (req: AuthRequest, re
       [currentIllness, symptomDuration, symptomSeverity, associatedSymptoms, relevantHistory, visitId]
     );
 
+
     res.json({
       success: true,
       message: 'Anamnesis actualizada exitosamente'
@@ -229,6 +299,7 @@ router.put('/:visitId/anamnesis', authenticateToken, async (req: AuthRequest, re
   }
 });
 
+
 // ============================================
 // UPDATE - ACTUALIZAR SIGNOS VITALES
 // ============================================
@@ -237,15 +308,18 @@ router.put('/:visitId/vital-signs', authenticateToken, async (req: AuthRequest, 
     const { visitId } = req.params;
     const { weight, height, systolicBp, diastolicBp, heartRate, respiratoryRate, bodyTemperature } = req.body;
 
+
     // Verificar que la consulta existe
     const visitResult = await query(
       'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
       [visitId, req.clientId]
     );
 
+
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
+
 
     // Calcular IMC si hay peso y altura
     let imc = null;
@@ -253,6 +327,7 @@ router.put('/:visitId/vital-signs', authenticateToken, async (req: AuthRequest, 
       const heightInMeters = height / 100;
       imc = weight / (heightInMeters * heightInMeters);
     }
+
 
     // Actualizar signos vitales
     await query(
@@ -270,6 +345,7 @@ router.put('/:visitId/vital-signs', authenticateToken, async (req: AuthRequest, 
       [weight, height, systolicBp, diastolicBp, heartRate, respiratoryRate, bodyTemperature, imc, visitId]
     );
 
+
     res.json({
       success: true,
       message: 'Signos vitales actualizados exitosamente',
@@ -281,6 +357,7 @@ router.put('/:visitId/vital-signs', authenticateToken, async (req: AuthRequest, 
   }
 });
 
+
 // ============================================
 // CREATE - AGREGAR DIAGNÓSTICO
 // ============================================
@@ -289,9 +366,11 @@ router.post('/:visitId/diagnoses', authenticateToken, async (req: AuthRequest, r
     const { visitId } = req.params;
     const { diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity } = req.body;
 
+
     if (!diagnosisCodeCie10 || !diagnosisDescription) {
       return res.status(400).json({ error: 'diagnosisCodeCie10 y diagnosisDescription son requeridos' });
     }
+
 
     // Verificar que la consulta existe
     const visitResult = await query(
@@ -299,9 +378,11 @@ router.post('/:visitId/diagnoses', authenticateToken, async (req: AuthRequest, r
       [visitId, req.clientId]
     );
 
+
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
+
 
     // Crear diagnóstico
     const result = await query(
@@ -310,6 +391,7 @@ router.post('/:visitId/diagnoses', authenticateToken, async (req: AuthRequest, r
        RETURNING id, diagnosis_code_cie10, diagnosis_description`,
       [visitId, diagnosisCodeCie10, diagnosisDescription, diagnosisType || 'principal', severity]
     );
+
 
     res.status(201).json({
       success: true,
@@ -322,6 +404,7 @@ router.post('/:visitId/diagnoses', authenticateToken, async (req: AuthRequest, r
   }
 });
 
+
 // ============================================
 // CREATE - AGREGAR MEDICAMENTO/TRATAMIENTO
 // ============================================
@@ -330,9 +413,13 @@ router.post('/:visitId/treatments', authenticateToken, async (req: AuthRequest, 
     const { visitId } = req.params;
     const { medicationName, dosage, frequency, duration, route, quantity, instructions } = req.body;
 
+
+
     if (!medicationName || !dosage || !frequency) {
       return res.status(400).json({ error: 'medicationName, dosage y frequency son requeridos' });
     }
+
+
 
     // Verificar que la consulta existe
     const visitResult = await query(
@@ -340,17 +427,34 @@ router.post('/:visitId/treatments', authenticateToken, async (req: AuthRequest, 
       [visitId, req.clientId]
     );
 
+
+
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
 
+
+
     // Crear tratamiento
+    // NOTA: quantity se envía como string (puede ser "20 comprimidos", "1 frasco", etc)
+    // pero la BD solo almacena datos de texto, no necesita conversión
     const result = await query(
       `INSERT INTO treatments (visit_id, medication_name, dosage, frequency, duration, route, quantity, instructions)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, medication_name, dosage, frequency`,
-      [visitId, medicationName, dosage, frequency, duration, route, quantity, instructions]
+       RETURNING id, medication_name, dosage, frequency, route, quantity`,
+      [
+        visitId, 
+        medicationName.trim(), 
+        dosage.trim(), 
+        frequency.trim(), 
+        duration ? duration.trim() : null, 
+        route || 'oral', 
+        quantity ? quantity.trim() : null,
+        instructions ? instructions.trim() : null
+      ]
     );
+
+
 
     res.status(201).json({
       success: true,
@@ -363,6 +467,7 @@ router.post('/:visitId/treatments', authenticateToken, async (req: AuthRequest, 
   }
 });
 
+
 // ============================================
 // UPDATE - CAMBIAR ESTADO DE CONSULTA
 // ============================================
@@ -371,10 +476,12 @@ router.put('/:visitId/status', authenticateToken, async (req: AuthRequest, res: 
     const { visitId } = req.params;
     const { status } = req.body;
 
+
     const validStatuses = ['draft', 'completed', 'signed', 'archived'];
     if (!status || !validStatuses.includes(status)) {
       return res.status(400).json({ error: `Status debe ser uno de: ${validStatuses.join(', ')}` });
     }
+
 
     // Verificar que la consulta existe
     const visitResult = await query(
@@ -382,9 +489,11 @@ router.put('/:visitId/status', authenticateToken, async (req: AuthRequest, res: 
       [visitId, req.clientId]
     );
 
+
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
+
 
     // Actualizar estado
     await query(
@@ -393,6 +502,7 @@ router.put('/:visitId/status', authenticateToken, async (req: AuthRequest, res: 
        WHERE id = $3`,
       [status, req.userId, visitId]
     );
+
 
     res.json({
       success: true,
@@ -403,5 +513,194 @@ router.put('/:visitId/status', authenticateToken, async (req: AuthRequest, res: 
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
+
+
+// ============================================
+// UPDATE - ACTUALIZAR REVISIÓN POR SISTEMAS
+// ============================================
+router.put('/:visitId/system-review', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { visitId } = req.params;
+    const { headNeck, ocular, ears, thoraxAbdomen, respiratory, cardiovascular, digestive, genitourinary, musculoskeletal, skin, nervousSystem } = req.body;
+
+
+    const visitResult = await query(
+      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
+      [visitId, req.clientId]
+    );
+
+
+    if (visitResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Consulta no encontrada' });
+    }
+
+
+    await query(
+      `UPDATE system_review 
+       SET head_neck = COALESCE($1, head_neck),
+           ocular = COALESCE($2, ocular),
+           ears = COALESCE($3, ears),
+           thorax_abdomen = COALESCE($4, thorax_abdomen),
+           respiratory = COALESCE($5, respiratory),
+           cardiovascular = COALESCE($6, cardiovascular),
+           digestive = COALESCE($7, digestive),
+           genitourinary = COALESCE($8, genitourinary),
+           musculoskeletal = COALESCE($9, musculoskeletal),
+           skin = COALESCE($10, skin),
+           nervous_system = COALESCE($11, nervous_system)
+       WHERE visit_id = $12`,
+      [headNeck, ocular, ears, thoraxAbdomen, respiratory, cardiovascular, digestive, genitourinary, musculoskeletal, skin, nervousSystem, visitId]
+    );
+
+
+    res.json({
+      success: true,
+      message: 'Revisión por sistemas actualizada exitosamente'
+    });
+  } catch (error) {
+    console.error('Error al actualizar revisión por sistemas:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
+// ============================================
+// UPDATE - ACTUALIZAR EXAMEN FÍSICO
+// ============================================
+router.put('/:visitId/physical-exam', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { visitId } = req.params;
+    const { generalAppearance, mentalStatus, detailedFindings, abnormalities } = req.body;
+
+
+    const visitResult = await query(
+      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
+      [visitId, req.clientId]
+    );
+
+
+    if (visitResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Consulta no encontrada' });
+    }
+
+
+    await query(
+      `UPDATE physical_exam 
+       SET general_appearance = COALESCE($1, general_appearance),
+           mental_status = COALESCE($2, mental_status),
+           detailed_findings = COALESCE($3, detailed_findings),
+           abnormalities = COALESCE($4, abnormalities),
+           exam_date = NOW()
+       WHERE visit_id = $5`,
+      [generalAppearance, mentalStatus, detailedFindings, abnormalities, visitId]
+    );
+
+
+    res.json({
+      success: true,
+      message: 'Examen físico actualizado exitosamente'
+    });
+  } catch (error) {
+    console.error('Error al actualizar examen físico:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
+// ============================================
+// UPDATE - ACTUALIZAR SEGUIMIENTO/RECOMENDACIONES
+// ============================================
+router.put('/:visitId/follow-up', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { visitId } = req.params;
+    const { followUpReason } = req.body;
+
+
+    const visitResult = await query(
+      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
+      [visitId, req.clientId]
+    );
+
+
+    if (visitResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Consulta no encontrada' });
+    }
+
+
+    await query(
+      `UPDATE follow_up 
+       SET follow_up_reason = COALESCE($1, follow_up_reason)
+       WHERE visit_id = $2`,
+      [followUpReason, visitId]
+    );
+
+
+    res.json({
+      success: true,
+      message: 'Recomendaciones actualizadas exitosamente'
+    });
+  } catch (error) {
+    console.error('Error al actualizar recomendaciones:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
+// ============================================
+// DELETE - ELIMINAR CONSULTA MÉDICA
+// ============================================
+router.delete('/:visitId', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const { visitId } = req.params;
+
+
+    // Verificar que la consulta existe y pertenece al tenant
+    const visitResult = await query(
+      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
+      [visitId, req.clientId]
+    );
+
+
+    if (visitResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Consulta no encontrada' });
+    }
+
+
+    // Eliminar diagnósticos asociados
+    await query('DELETE FROM diagnoses WHERE visit_id = $1', [visitId]);
+
+
+    // Eliminar medicamentos asociados
+    await query('DELETE FROM treatments WHERE visit_id = $1', [visitId]);
+
+
+    // Eliminar secciones de la historia clínica
+    await query('DELETE FROM anamnesis WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM personal_history WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM family_history WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM vital_signs WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM system_review WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM physical_exam WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM follow_up WHERE visit_id = $1', [visitId]);
+
+
+    // Eliminar la consulta principal
+    await query(
+      'DELETE FROM medical_visits WHERE id = $1',
+      [visitId]
+    );
+
+
+    res.json({
+      success: true,
+      message: 'Consulta eliminada exitosamente'
+    });
+  } catch (error) {
+    console.error('Error al eliminar consulta:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+
 
 export default router;

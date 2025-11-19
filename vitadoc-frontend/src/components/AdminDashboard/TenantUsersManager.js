@@ -4,6 +4,7 @@ import api from '../../services/api';
 import DeleteConfirmModal from '../DeleteConfirmModal';
 import '../../styles/TenantUsersManager.css';
 
+
 export default function TenantUsersManager({ tenantId, onClose }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,12 +16,14 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     role: ''
   });
 
+
   // Estados para información de plan y límites
   const [tenantInfo, setTenantInfo] = useState({
     plan: 'basic',
     limit: 1,
     currentUsers: 0
   });
+
 
   // Estados para modal de eliminación
   const [deleteModal, setDeleteModal] = useState({
@@ -31,10 +34,12 @@ export default function TenantUsersManager({ tenantId, onClose }) {
   const [deleteStep, setDeleteStep] = useState(1);
   const [isDeleting, setIsDeleting] = useState(false);
 
+
   useEffect(() => {
     fetchTenantInfo();
     fetchTenantUsers();
   }, [tenantId]);
+
 
   // Obtener información del tenant (plan y límite)
   const fetchTenantInfo = async () => {
@@ -50,6 +55,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
           enterprise: 999999
         };
 
+
         setTenantInfo({
           plan: tenant.subscription_plan || 'basic',
           limit: planLimits[tenant.subscription_plan] || 1,
@@ -61,6 +67,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
       toast.error('❌ Error al cargar información de la clínica');
     }
   };
+
 
   const fetchTenantUsers = async () => {
     try {
@@ -81,6 +88,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     }
   };
 
+
   const handleEdit = (user) => {
     setEditingId(user.id);
     setEditForm({
@@ -90,6 +98,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
       role: user.role
     });
   };
+
 
   const handleSaveEdit = async () => {
     try {
@@ -107,6 +116,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     }
   };
 
+
   // Abrir modal de eliminación
   const handleDeleteUser = (userId, userName) => {
     setDeleteModal({
@@ -117,12 +127,14 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     setDeleteStep(1);
   };
 
+
   // Confirmar eliminación (2 pasos)
   const handleConfirmDelete = async () => {
     if (deleteStep === 1) {
       setDeleteStep(2);
       return;
     }
+
 
     if (deleteStep === 2) {
       try {
@@ -148,6 +160,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     }
   };
 
+
   // Cancelar eliminación
   const handleCancelDelete = () => {
     setDeleteModal({ isOpen: false, userId: null, userName: null });
@@ -155,11 +168,42 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     setIsDeleting(false);
   };
 
+
+  // 🔐 RESET PASSWORD - NUEVA FUNCIÓN
+  const handleResetPassword = async (userId, userName) => {
+    const newPassword = window.prompt(`Ingresa nueva contraseña para ${userName}:\n(Mínimo 8 caracteres)`);
+    
+    if (!newPassword) return;
+    
+    if (newPassword.length < 8) {
+      toast.error('❌ La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    try {
+      const resetToast = toast.loading('⏳ Reseteando contraseña...');
+      
+      await api.post('/auth/reset-password', {
+        userId,
+        newPassword
+      });
+      
+      toast.dismiss(resetToast);
+      toast.success(`✓ Contraseña reseteada para ${userName}`);
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      const errorMsg = error.response?.data?.error || 'Error desconocido';
+      toast.error('❌ Error: ' + errorMsg);
+    }
+  };
+
+
   // ✨ NUEVO: Calcular estados del plan
   const isLimitReached = tenantInfo.currentUsers >= tenantInfo.limit;
   const isNearLimit = tenantInfo.currentUsers >= tenantInfo.limit * 0.75 && !isLimitReached;
   const usersRemaining = tenantInfo.limit - tenantInfo.currentUsers;
   const progressPercent = Math.min((tenantInfo.currentUsers / tenantInfo.limit) * 100, 100);
+
 
   // ✨ NUEVO: Determinar clase del badge
   const getBadgeClass = () => {
@@ -168,12 +212,14 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     return 'success';
   };
 
+
   // ✨ NUEVO: Determinar clase del progress bar
   const getProgressClass = () => {
     if (isLimitReached) return 'danger';
     if (isNearLimit) return 'warning';
     return '';
   };
+
 
   // ✨ NUEVO: Obtener texto de estado
   const getStatusInfo = () => {
@@ -195,11 +241,14 @@ export default function TenantUsersManager({ tenantId, onClose }) {
     };
   };
 
+
   const statusInfo = getStatusInfo();
+
 
   if (loading) {
     return <div className="users-manager-loading">⏳ Cargando usuarios...</div>;
   }
+
 
   return (
     <div className="tenant-users-manager">
@@ -208,6 +257,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
         <h3>👥 Gestión de Usuarios</h3>
         <button className="btn-close" onClick={onClose}>✕</button>
       </div>
+
 
       {/* ✨ NUEVO: PLAN INFO SECTION */}
       <div className="plan-info">
@@ -218,12 +268,14 @@ export default function TenantUsersManager({ tenantId, onClose }) {
           </span>
         </div>
 
+
         {/* User Count Badge */}
         <div className={`limit-badge ${getBadgeClass()}`}>
           <span className="user-count">{tenantInfo.currentUsers}</span>
           <span className="divider">/</span>
           <span className="max-count">{tenantInfo.limit === 999999 ? '∞' : tenantInfo.limit}</span>
         </div>
+
 
         {/* Progress Bar */}
         {tenantInfo.limit !== 999999 && (
@@ -241,8 +293,10 @@ export default function TenantUsersManager({ tenantId, onClose }) {
           </div>
         )}
 
+
         {/* Status Text */}
         <p className={statusInfo.className}>{statusInfo.text}</p>
+
 
         {/* Limit Alert */}
         {isLimitReached && (
@@ -262,6 +316,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
           </div>
         )}
       </div>
+
 
       {/* USUARIOS TABLE */}
       {users.length === 0 ? (
@@ -360,6 +415,13 @@ export default function TenantUsersManager({ tenantId, onClose }) {
                       </>
                     ) : (
                       <>
+                        <button 
+                          className="btn-reset-sm" 
+                          onClick={() => handleResetPassword(user.id, user.full_name)}
+                          title="Resetear contraseña"
+                        >
+                          🔐 Resetear
+                        </button>
                         <button className="btn-edit-sm" onClick={() => handleEdit(user)}>✏️ Editar</button>
                         <button 
                           className="btn-delete-sm" 
@@ -376,6 +438,7 @@ export default function TenantUsersManager({ tenantId, onClose }) {
           </table>
         </div>
       )}
+
 
       {/* Modal de eliminación */}
       <DeleteConfirmModal

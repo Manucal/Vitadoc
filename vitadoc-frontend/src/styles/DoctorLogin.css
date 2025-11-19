@@ -1,0 +1,149 @@
+.doctor-login-container {
+  background: linear-gradient(135deg, #ffffff, #d4f3e3);
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.5s ease-out;
+  position: relative;
+}
+
+.back-button {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: none;
+  border: none;
+  color: var(--color-secondary-gray);
+  font-size: var(--font-size-lg);
+  cursor: pointer;
+  padding: 8px;
+  transition: color 0.3s ease;
+}
+
+.back-button:hover {
+  color: var(--color-primary-green);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 40px;
+  margin-top: 30px;
+}
+
+.login-header .logo {
+  max-width: 150px;
+  margin-bottom: 20px;
+}
+
+.login-header h1 {
+  margin-bottom: 10px;
+  background: linear-gradient(135deg, var(--color-primary-green), var(--color-primary-blue));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.login-subtitle {
+  font-size: 1.1rem;  /* Un poco más grande */
+  font-weight: 600; /* Un poco más "bold" (semi-bold) */
+  color: #333;       /* Un color oscuro, no gris */
+}
+
+
+.login-form {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--color-black);
+  font-size: var(--font-size-sm);
+}
+
+.form-group .input-field {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: var(--font-size-base);
+  transition: all 0.3s ease;
+}
+
+.form-group .input-field:focus {
+  outline: none;
+  border-color: var(--color-primary-green);
+  box-shadow: 0 0 0 3px rgba(45, 168, 129, 0.1);
+}
+
+.form-group .input-field:disabled {
+  background-color: #f3f4f6;
+  cursor: not-allowed;
+}
+
+.btn-iniciarsesion {
+  background: linear-gradient(135deg, #8cd4e0, #17d184);
+  color: white;
+  box-shadow: 0 4px 15px rgba(45, 168, 129, 0.3);
+}
+
+.error-message {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--color-error);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: var(--font-size-sm);
+  border-left: 4px solid var(--color-error);
+}
+
+.btn-full {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.btn-full:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.footer-text {
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-secondary-gray);
+}
+
+.footer-text .link {
+  color: var(--color-primary-green);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.footer-text .link:hover {
+  color: var(--color-primary-blue);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 600px) {
+  .doctor-login-container {
+    padding: 30px 20px;
+  }
+}

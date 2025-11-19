@@ -6,8 +6,9 @@ import InvitationsManager from '../components/AdminDashboard/InvitationsManager'
 import AnalyticsDashboard from '../components/AdminDashboard/AnalyticsDashboard';
 import CreateTenantForm from '../components/AdminDashboard/CreateTenantForm';
 import BulkUserCreation from '../components/AdminDashboard/BulkUserCreation';
-import AuditLogsTab from '../components/AdminDashboard/AuditLogsTab';  // ✨ NUEVA LÍNEA
+import AuditLogsTab from '../components/AdminDashboard/AuditLogsTab';
 import '../styles/AdminPage.css';
+
 
 
 export default function AdminPage() {
@@ -25,10 +26,12 @@ export default function AdminPage() {
   });
 
 
+
   useEffect(() => {
     fetchUserData();
     fetchAnalytics();
   }, []);
+
 
 
   const fetchUserData = async () => {
@@ -36,17 +39,6 @@ export default function AdminPage() {
       const response = await api.get('/auth/me');
       const userData = response.data.data;
       setUser(userData);
-      
-      // ✅ NUEVO: Validar SUPER-ADMIN (tenant_id === null)
-      const isSuperAdmin = userData.role === 'admin' && userData.tenant_id === null;
-      
-      if (!isSuperAdmin) {
-        console.warn('⚠️ Acceso denegado: No es SUPER-ADMIN');
-        navigate('/doctor-dashboard');
-        return;
-      }
-      
-      console.log('✅ SUPER-ADMIN verificado, acceso a AdminPage permitido');
     } catch (error) {
       console.error('Error verificando usuario:', error);
       navigate('/login');
@@ -54,6 +46,7 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
+
 
 
 
@@ -84,13 +77,17 @@ export default function AdminPage() {
   };
 
 
+
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
       localStorage.removeItem('token');
-      navigate('/login');
+      localStorage.removeItem('doctorType');  // ← Limpiar doctorType también
+      navigate('/doctor-type-selection', { replace: true });  // ← Ir a doctor-type-selection
     } catch {}
   };
+
+
 
 
   const handleTabChange = (tab) => {
@@ -99,9 +96,11 @@ export default function AdminPage() {
   };
 
 
+
   const handleSelectTenant = (tenantId) => {
     setSelectedTenantId(tenantId);
   };
+
 
 
   if (loading) {
@@ -112,6 +111,7 @@ export default function AdminPage() {
       </div>
     );
   }
+
 
 
   return (
@@ -130,6 +130,7 @@ export default function AdminPage() {
       </header>
 
 
+
       <nav className="admin-tabs">
         <button className={activeTab === 'overview' ? 'active' : ''} onClick={() => handleTabChange('overview')}>
           📊 Resumen
@@ -143,11 +144,11 @@ export default function AdminPage() {
         <button className={activeTab === 'analytics' ? 'active' : ''} onClick={() => handleTabChange('analytics')}>
           📈 Analíticas
         </button>
-        {/* ✨ NUEVA LÍNEA: Tab de Auditoría */}
         <button className={activeTab === 'audit' ? 'active' : ''} onClick={() => handleTabChange('audit')}>
           📋 Auditoría
         </button>
       </nav>
+
 
 
       <main className="admin-content">
@@ -196,8 +197,6 @@ export default function AdminPage() {
         
         {activeTab === 'invitations' && <InvitationsManager />}
         {activeTab === 'analytics' && <AnalyticsDashboard analytics={analytics} />}
-        
-        {/* ✨ NUEVA LÍNEA: Tab de Auditoría */}
         {activeTab === 'audit' && (
           <AuditLogsTab />
         )}

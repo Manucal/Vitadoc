@@ -1,0 +1,83 @@
+.invitations-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.invitation-form {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+}
+
+.invitation-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.3s;
+  margin-bottom: 10px;
+}
+
+.invitation-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.invitation-info {
+  flex: 1;
+}
+
+.invitation-info h4 {
+  margin: 0 0 10px 0;
+  color: #333;
+}
+
+.invitation-info p {
+  margin: 5px 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.invitation-info code {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+  margin: 0 5px;
+}
+
+.btn-copy {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  transition: transform 0.2s;
+}
+
+.btn-copy:hover {
+  transform: scale(1.2);
+}
+
+.status.pending {
+  color: #ff9800;
+}
+
+.status.accepted {
+  color: #4caf50;
+}
+
+.status.rejected {
+  color: #f44336;
+}
+
+.invitations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

@@ -6,9 +6,6 @@ import TenantUsersManager from './TenantUsersManager';
 import DeleteConfirmModal from '../DeleteConfirmModal';
 import '../../styles/ClientsManager.css';
 
-
-
-
 export default function ClientsManager({ onUpdate, onSelectTenant }) {
   const [tenants, setTenants] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -19,7 +16,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
   const [selectedTenant, setSelectedTenant] = useState(null);
   const [showUsersManager, setShowUsersManager] = useState(false);
   
-  // Estados para el modal de eliminación
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     tenantId: null,
@@ -27,9 +23,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
   });
   const [deleteStep, setDeleteStep] = useState(1);
   const [isDeleting, setIsDeleting] = useState(false);
-
-
-
 
   const [formData, setFormData] = useState({
     name: '',
@@ -40,15 +33,9 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
   });
   const [editingId, setEditingId] = useState(null);
 
-
-
-
   useEffect(() => {
     fetchTenants();
   }, []);
-
-
-
 
   const fetchTenants = async () => {
     try {
@@ -64,9 +51,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
-
-
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -75,16 +59,10 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }));
   };
 
-
-
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-
-
-
 
       if (editingId) {
         const updateToast = toast.loading('⏳ Actualizando clínica...');
@@ -99,9 +77,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         toast.error('Para crear nueva clínica, usa el formulario de Crear Clínica en Resumen');
         return;
       }
-
-
-
 
       setFormData({
         name: '',
@@ -119,9 +94,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
-
-
-
   const handleEdit = (tenant) => {
     setFormData({
       name: tenant.name,
@@ -134,23 +106,12 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     setShowForm(true);
   };
 
-
-
-
-  // ============================================
-  // FUNCIONES PARA DESACTIVAR CLÍNICA ✨ CON TOAST
-  // ============================================
   const handleDeactivateTenant = async (tenantId, tenantName) => {
-    // Confirmación simple
     const confirmed = window.confirm(
       `⚠️ ¿Estás seguro que quieres DESACTIVAR la clínica "${tenantName}"?\n\nLos usuarios de esta clínica NO PODRÁN acceder al sistema.`
     );
 
-
-
     if (!confirmed) return;
-
-
 
     try {
       setLoading(true);
@@ -158,7 +119,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
       
       await api.patch(`/tenants/${tenantId}/deactivate`);
       
-      // Actualizar estado local
       setTenants((prev) =>
         prev.map((t) =>
           t.id === tenantId ? { ...t, status: 'inactive' } : t
@@ -176,20 +136,12 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
-
-
-
-  // ============================================
-  // FUNCIONES PARA REACTIVAR CLÍNICA ✨ CON TOAST
-  // ============================================
   const handleReactivateTenant = async (tenantId, tenantName) => {
     const confirmed = window.confirm(
       `✅ ¿Estás seguro que quieres REACTIVAR la clínica "${tenantName}"?\n\nLos usuarios podrán acceder nuevamente.`
     );
 
-
     if (!confirmed) return;
-
 
     try {
       setLoading(true);
@@ -197,7 +149,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
       
       await api.patch(`/tenants/${tenantId}/reactivate`);
       
-      // Actualizar estado local
       setTenants((prev) =>
         prev.map((t) =>
           t.id === tenantId ? { ...t, status: 'active' } : t
@@ -215,12 +166,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
-
-
-
-  // ============================================
-  // FUNCIONES PARA ELIMINAR CLÍNICA ✨ CON TOAST
-  // ============================================
   const handleDeleteTenant = (tenantId, tenantName) => {
     setDeleteModal({
       isOpen: true,
@@ -230,20 +175,12 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     setDeleteStep(1);
   };
 
-
-
-
   const handleConfirmDelete = async () => {
-    // Si estamos en step 1, pasar a step 2
     if (deleteStep === 1) {
       setDeleteStep(2);
       return;
     }
 
-
-
-
-    // Si estamos en step 2, ejecutar eliminación
     if (deleteStep === 2) {
       try {
         setIsDeleting(true);
@@ -265,17 +202,11 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
-
-
-
   const handleCancelDelete = () => {
     setDeleteModal({ isOpen: false, tenantId: null, tenantName: null });
     setDeleteStep(1);
     setIsDeleting(false);
   };
-
-
-
 
   const handleManageUsers = (tenant) => {
     setSelectedTenant(tenant);
@@ -285,32 +216,17 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
-
-
-
   const filteredTenants = tenants.filter((tenant) => {
     const matchesSearch =
       tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tenant.contact_email.toLowerCase().includes(searchTerm.toLowerCase());
 
-
-
-
     const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
-
-
-
 
     const matchesPlan = filterPlan === 'all' || tenant.subscription_plan === filterPlan;
 
-
-
-
     return matchesSearch && matchesStatus && matchesPlan;
   });
-
-
-
 
   const planColors = {
     basic: '#3773f5',
@@ -319,18 +235,12 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     enterprise: '#bb62ef',
   };
 
-
-
-
   const planPrices = {
     basic: '$99K/mes',
     standard: '$189K/mes',
     premium: '$299K/mes',
     enterprise: 'Personalizado',
   };
-
-
-
 
   return (
     <div className="clients-manager">
@@ -341,10 +251,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         </div>
       </div>
 
-
-
-
-      {/* FILTROS */}
       <div className="filters-container">
         <div className="search-box">
           <input
@@ -355,9 +261,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
           />
         </div>
 
-
-
-
         <div className="filter-group">
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="all">📊 Todos los estados</option>
@@ -366,9 +269,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
             <option value="suspended">🚫 Suspendidos</option>
           </select>
         </div>
-
-
-
 
         <div className="filter-group">
           <select value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}>
@@ -381,16 +281,9 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         </div>
       </div>
 
-
-
-
-      {/* FORMULARIO - Solo para editar */}
       {showForm && (
         <form className="client-form" onSubmit={handleSubmit}>
           <h3>✏️ Editar Clínica</h3>
-
-
-
 
           <div className="form-row">
             <div className="form-group">
@@ -417,9 +310,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
             </div>
           </div>
 
-
-
-
           <div className="form-row">
             <div className="form-group">
               <label>Teléfono</label>
@@ -441,9 +331,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
             </div>
           </div>
 
-
-
-
           <div className="form-row">
             <div className="form-group">
               <label>Plan de Suscripción</label>
@@ -459,9 +346,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
               </select>
             </div>
           </div>
-
-
-
 
           <div className="form-actions">
             <button type="submit" className="btn-submit" disabled={loading}>
@@ -481,10 +365,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         </form>
       )}
 
-
-
-
-      {/* LISTADO DE CLÍNICAS */}
       {loading && !showForm ? (
         <div className="loading">⏳ Cargando clínicas...</div>
       ) : (
@@ -511,9 +391,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                   </span>
                 </div>
 
-
-
-
                 <div className="card-body">
                   <p>
                     <strong>Email:</strong> {tenant.contact_email}
@@ -522,17 +399,11 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                     <strong>Teléfono:</strong> {tenant.contact_phone || 'No registrado'}
                   </p>
 
-
-
-
                   <div className="plan-badge" style={{ borderLeftColor: planColors[tenant.subscription_plan] }}>
                     <strong>Plan:</strong> {tenant.subscription_plan.toUpperCase()}
                     <br />
                     <small>{planPrices[tenant.subscription_plan]}</small>
                   </div>
-
-
-
 
                   <div className="limits">
                     <div className="limit-item">
@@ -541,9 +412,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                     </div>
                   </div>
                 </div>
-
-
-
 
                 <div className="card-footer">
                   <button
@@ -586,10 +454,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         </div>
       )}
 
-
-
-
-      {/* MODAL PARA GESTIONAR USUARIOS */}
       {showUsersManager && selectedTenant && (
         <TenantUsersManager
           tenantId={selectedTenant.id}
@@ -597,10 +461,6 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         />
       )}
 
-
-
-
-      {/* MODAL DE ELIMINACIÓN DE CLÍNICA */}
       <DeleteConfirmModal
         isOpen={deleteModal.isOpen}
         step={deleteStep}
