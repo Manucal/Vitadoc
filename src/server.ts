@@ -1,26 +1,24 @@
+
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-
 dotenv.config();
 
-
 const app: Express = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
-
-// MIDDLEWARE
+// MIDDLEWARE - CORS CONFIGURADO PARA PRODUCCIÓN
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://vitadoc.vercel.app'  // ✅ Frontend en producción
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],  // ✅ Local development
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],  // ✅ AGREGADO: PATCH
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-
 app.use(express.json());
-
 
 // HEALTH CHECK
 app.get('/api/health', (req: Request, res: Response) => {
@@ -32,7 +30,6 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
-
 // CARGAR RUTAS DE FORMA SEGURA
 try {
   const authRoutes = require('./routes/auth.routes').default;
@@ -41,9 +38,7 @@ try {
   const tenantsRoutes = require('./routes/tenants.routes').default;
   const clientsRoutes = require('./routes/clients.routes').default;
   const invitationsRoutes = require('./routes/invitations.routes').default;
-  const auditRoutes = require('./routes/audit.routes').default;  // ✨ NUEVA LÍNEA
-
-
+  const auditRoutes = require('./routes/audit.routes').default;
 
   // RUTAS
   app.use('/api/auth', authRoutes);
@@ -52,9 +47,7 @@ try {
   app.use('/api/tenants', tenantsRoutes);
   app.use('/api/clients', clientsRoutes);
   app.use('/api/invitations', invitationsRoutes);
-  app.use('/api/audit', auditRoutes);  // ✨ NUEVA LÍNEA
-
-
+  app.use('/api/audit', auditRoutes);
 
   console.log('✅ Todas las rutas cargadas exitosamente');
 } catch (error) {
@@ -62,12 +55,10 @@ try {
   process.exit(1);
 }
 
-
 // ERROR 404
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
-
 
 // INICIAR SERVIDOR
 const server = app.listen(PORT, () => {
@@ -88,6 +79,7 @@ const server = app.listen(PORT, () => {
     - /api/tenants (Gestión de clínicas - B2B)
     - /api/clients (Gestión de clientes - B2B)
     - /api/invitations (Invitaciones de usuarios - B2B)
+    - /api/audit (Auditoría)
   
   ✅ Métodos HTTP soportados: GET, POST, PUT, DELETE, PATCH, OPTIONS
   
@@ -95,17 +87,14 @@ const server = app.listen(PORT, () => {
   `);
 });
 
-
 server.on('error', (error: Error) => {
   console.error('❌ Error en servidor:', error);
   process.exit(1);
 });
 
-
 process.on('unhandledRejection', (reason: Error) => {
   console.error('❌ Unhandled Rejection:', reason);
   process.exit(1);
 });
-
 
 export default app;
