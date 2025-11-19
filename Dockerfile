@@ -10,7 +10,7 @@ COPY src ./src
 COPY tsconfig.json ./
 
 # Paso 4: Instalar dependencias
-RUN npm ci --only=production
+RUN npm ci
 
 # Paso 5: Abrir puerto
 EXPOSE 3001
