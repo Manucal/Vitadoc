@@ -24,7 +24,7 @@ COPY package.json ./
 
 # Copiar solo lo necesario del builder
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/src/database/ ./src/database/
+COPY --from=builder /app/src/database ./src/database
 COPY --from=builder /app/node_modules ./node_modules
 
 # Exponer puerto
