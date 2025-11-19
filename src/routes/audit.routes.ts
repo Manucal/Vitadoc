@@ -1,9 +1,9 @@
 // src/routes/audit.routes.ts
 
 import express, { Request, Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth';
-import { query } from '../config/database';
-import { getAuditLogs, getAuditStats } from '../services/auditService';
+import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import { query } from '../config/database.js';
+import { getAuditLogs, getAuditStats } from '../services/auditService.js';
 
 const router = express.Router();
 

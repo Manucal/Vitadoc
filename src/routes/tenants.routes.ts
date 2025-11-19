@@ -1,8 +1,8 @@
 import express, { Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth';
-import { query } from '../config/database';
-import { hashPassword } from '../config/auth';
-import { logAction } from '../services/auditService';
+import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import { query } from '../config/database.js';
+import { hashPassword } from '../config/auth.js';
+import { logAction } from '../services/auditService.js';
 
 // ✅ HELPER: Validar SUPER-ADMIN (CORREGIDO - Sin error TypeScript)
 const validateSuperAdmin = async (userId: string | undefined): Promise<boolean> => {

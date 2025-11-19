@@ -1,96 +1,112 @@
-import { Router, Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth';
-import { query } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
-const router = Router();
+dotenv.config();
 
-// POST - Crear cliente
-router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const { name, email, phone, clientType } = req.body;
-    
-    if (!name || !email || !clientType) {
-      return res.status(400).json({ error: 'Campos requeridos: name, email, clientType' });
-    }
+const app: Express = express();
+const PORT = process.env.PORT || 3001;
 
-    const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
-    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Solo administradores pueden crear clientes' });
-    }
+// MIDDLEWARE - CORS CONFIGURADO PARA PRODUCCIÓN
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://vitadoc.vercel.app'
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
-    const existsResult = await query('SELECT id FROM tenants WHERE contact_email = $1', [email]);
-    if (existsResult.rows.length > 0) {
-      return res.status(409).json({ error: 'El cliente ya existe con este email' });
-    }
+app.use(express.json());
 
-    const clientId = uuidv4();
-    const result = await query(
-      'INSERT INTO tenants (id, name, type, contact_email, contact_phone, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, type, contact_email, status, created_date',
-      [clientId, name, clientType, email, phone || null, 'active']
-    );
-
-    res.status(201).json({ success: true, message: 'Cliente creado exitosamente', client: result.rows[0] });
-  } catch (error) {
-    console.error('Error al crear cliente:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
+// HEALTH CHECK
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'VitaDoc API running ✅', 
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV,
+    version: '3.0.0'
+  });
 });
 
-// GET - Listar todos los clientes
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+// CARGAR RUTAS DE FORMA SEGURA (ASYNC)
+async function initializeRoutes() {
   try {
-    const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
-    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Solo administradores pueden listar clientes' });
-    }
+    // Cargar todos los módulos de rutas
+    const authRoutes = (await import('./routes/auth.routes')).default;
+    const patientRoutes = (await import('./routes/patients.routes')).default;
+    const medicalVisitsRoutes = (await import('./routes/medical-visits.routes')).default;
+    const tenantsRoutes = (await import('./routes/tenants.routes')).default;
+    const clientsRoutes = (await import('./routes/clients.routes')).default;
+    const invitationsRoutes = (await import('./routes/invitations.routes')).default;
+    const auditRoutes = (await import('./routes/audit.routes')).default;
 
-    const result = await query('SELECT id, name, type, contact_email, contact_phone, status, created_date FROM tenants ORDER BY created_date DESC');
-    res.json({ success: true, clients: result.rows, total: result.rows.length });
+    // REGISTRAR RUTAS
+    app.use('/api/auth', authRoutes);
+    app.use('/api/patients', patientRoutes);
+    app.use('/api/medical-visits', medicalVisitsRoutes);
+    app.use('/api/tenants', tenantsRoutes);
+    app.use('/api/clients', clientsRoutes);
+    app.use('/api/invitations', invitationsRoutes);
+    app.use('/api/audit', auditRoutes);
+
+    console.log('✅ Todas las rutas cargadas exitosamente');
   } catch (error) {
-    console.error('Error al obtener clientes:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
+    console.error('❌ Error al cargar rutas:', error);
+    process.exit(1);
   }
+}
+
+// ERROR 404
+app.use((req: Request, res: Response) => {
+  res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-// GET - Obtener un cliente específico
-router.get('/:clientId', authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const { clientId } = req.params;
-    
-    const result = await query('SELECT * FROM tenants WHERE id = $1', [clientId]);
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Cliente no encontrado' });
-    }
+// INICIAR SERVIDOR CON RUTAS CARGADAS
+async function startServer() {
+  await initializeRoutes();
 
-    res.json({ success: true, client: result.rows[0] });
-  } catch (error) {
-    console.error('Error al obtener cliente:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
+  const server = app.listen(PORT, () => {
+    console.log(`
+╔════════════════════════════════════════╗
+║   🏥 VITADOC SERVER INICIADO 🏥      ║
+╚════════════════════════════════════════╝
+  
+  Puerto: ${PORT}
+  Entorno: ${process.env.NODE_ENV}
+  URL: http://localhost:${PORT}
+  API: http://localhost:${PORT}/api
+  
+  ✅ Rutas disponibles:
+    - /api/auth (Autenticación)
+    - /api/patients (Pacientes)
+    - /api/medical-visits (Consultas médicas)
+    - /api/tenants (Gestión de clínicas - B2B)
+    - /api/clients (Gestión de clientes - B2B)
+    - /api/invitations (Invitaciones de usuarios - B2B)
+    - /api/audit (Auditoría)
+  
+  ✅ Métodos HTTP soportados: GET, POST, PUT, DELETE, PATCH, OPTIONS
+  
+  Presiona Ctrl+C para detener
+  `);
+  });
+
+  server.on('error', (error: Error) => {
+    console.error('❌ Error en servidor:', error);
+    process.exit(1);
+  });
+
+  process.on('unhandledRejection', (reason: Error) => {
+    console.error('❌ Unhandled Rejection:', reason);
+    process.exit(1);
+  });
+}
+
+// Ejecutar servidor
+startServer().catch((error) => {
+  console.error('❌ Error al iniciar servidor:', error);
+  process.exit(1);
 });
 
-// DELETE - Eliminar cliente
-router.delete('/:clientId', authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    const { clientId } = req.params;
-
-    const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
-    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows[0].role !== 'admin') {
-      return res.status(403).json({ error: 'Solo administradores pueden eliminar clientes' });
-    }
-
-    const existsResult = await query('SELECT id FROM tenants WHERE id = $1', [clientId]);
-    if (existsResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Cliente no encontrado' });
-    }
-
-    await query('DELETE FROM tenants WHERE id = $1', [clientId]);
-    res.json({ success: true, message: 'Cliente eliminado exitosamente' });
-  } catch (error) {
-    console.error('Error al eliminar cliente:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-export default router;
+export default app;

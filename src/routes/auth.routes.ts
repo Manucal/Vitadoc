@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth';
-import { hashPassword, comparePasswords, generateToken } from '../config/auth';
-import { query } from '../config/database';
+import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import { hashPassword, comparePasswords, generateToken } from '../config/auth.js';
+import { query } from '../config/database.js';
 
 const router = express.Router();
 
