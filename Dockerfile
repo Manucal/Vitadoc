@@ -13,6 +13,7 @@ RUN npm ci
 # Compilar TypeScript a JavaScript
 RUN npm run build
 
+
 # Stage 2: Runtime - Ejecutar solo el código compilado
 FROM node:18-alpine
 
@@ -23,9 +24,8 @@ COPY package.json ./
 
 # Copiar solo lo necesario del builder
 COPY --from=builder /app/dist ./dist
-COPY src/database/schema.sql ./src/database/
+COPY --from=builder /app/src/database/ ./src/database/
 COPY --from=builder /app/node_modules ./node_modules
-
 
 # Exponer puerto
 EXPOSE 3001
