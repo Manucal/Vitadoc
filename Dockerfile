@@ -1,19 +1,32 @@
-# Paso 1: Usar Node.js oficial
-FROM node:18-alpine
+# Stage 1: Builder - Compilar TypeScript a JavaScript
+FROM node:18-alpine AS builder
 
-# Paso 2: Establecer carpeta de trabajo
 WORKDIR /app
 
-# Paso 3: Copiar solo lo que necesita el backend (NO frontend)
-COPY package.json package-lock.json ./
+# Copiar archivos de configuración
+COPY package.json package-lock.json tsconfig.json ./
 COPY src ./src
-COPY tsconfig.json ./
 
-# Paso 4: Instalar dependencias
+# Instalar todas las dependencias (incluyendo dev)
 RUN npm ci
 
-# Paso 5: Abrir puerto
+# Compilar TypeScript a JavaScript
+RUN npm run build
+
+# Stage 2: Runtime - Ejecutar solo el código compilado
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copiar package.json para información
+COPY package.json ./
+
+# Copiar solo lo necesario del builder
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+
+# Exponer puerto
 EXPOSE 3001
 
-# Paso 6: Comando para iniciar
-CMD ["node", "-r", "ts-node/register", "src/server.ts"]
+# Comando para iniciar
+CMD ["node", "dist/server.js"]
