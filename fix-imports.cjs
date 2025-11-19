@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const folders = ['src/routes', 'src/middleware', 'src/config', 'src/models', 'src/controllers'];
+const folders = ['src/routes', 'src/middleware', 'src/config', 'src/models', 'src/controllers', 'src/services'];
+
 
 function walkDir(dir) {
   if (!fs.existsSync(dir)) {

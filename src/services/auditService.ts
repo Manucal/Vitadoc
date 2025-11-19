@@ -1,6 +1,6 @@
 // src/services/auditService.ts
 
-import { query } from '../config/database';
+import { query } from '../config/database.js';
 import { Request } from 'express';
 
 export interface AuditLogInput {
