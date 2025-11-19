@@ -1,11 +1,15 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { initializeDatabase } from './database/init.js';
+
 
 dotenv.config();
 
+
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
+
 
 // MIDDLEWARE - CORS CONFIGURADO PARA PRODUCCIÓN
 app.use(cors({
@@ -17,7 +21,9 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+
 app.use(express.json());
+
 
 // HEALTH CHECK
 app.get('/api/health', (req: Request, res: Response) => {
@@ -29,9 +35,13 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+
 // CARGAR RUTAS DE FORMA SEGURA (ASYNC)
 async function initializeRoutes() {
   try {
+    // ✅ INICIALIZAR BASE DE DATOS PRIMERO
+    await initializeDatabase();
+
     // Cargar todos los módulos de rutas (CON .js)
     const authRoutes = (await import('./routes/auth.routes.js')).default;
     const patientRoutes = (await import('./routes/patients.routes.js')).default;
@@ -40,6 +50,7 @@ async function initializeRoutes() {
     const clientsRoutes = (await import('./routes/clients.routes.js')).default;
     const invitationsRoutes = (await import('./routes/invitations.routes.js')).default;
     const auditRoutes = (await import('./routes/audit.routes.js')).default;
+
 
     // REGISTRAR RUTAS
     app.use('/api/auth', authRoutes);
@@ -50,6 +61,7 @@ async function initializeRoutes() {
     app.use('/api/invitations', invitationsRoutes);
     app.use('/api/audit', auditRoutes);
 
+
     console.log('✅ Todas las rutas cargadas exitosamente');
   } catch (error) {
     console.error('❌ Error al cargar rutas:', error);
@@ -57,14 +69,17 @@ async function initializeRoutes() {
   }
 }
 
+
 // ERROR 404
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
+
 // INICIAR SERVIDOR CON RUTAS CARGADAS
 async function startServer() {
   await initializeRoutes();
+
 
   const server = app.listen(PORT, () => {
     console.log(`
@@ -92,10 +107,12 @@ async function startServer() {
   `);
   });
 
+
   server.on('error', (error: Error) => {
     console.error('❌ Error en servidor:', error);
     process.exit(1);
   });
+
 
   process.on('unhandledRejection', (reason: Error) => {
     console.error('❌ Unhandled Rejection:', reason);
@@ -103,10 +120,12 @@ async function startServer() {
   });
 }
 
+
 // Ejecutar servidor
 startServer().catch((error) => {
   console.error('❌ Error al iniciar servidor:', error);
   process.exit(1);
 });
+
 
 export default app;
