@@ -3,16 +3,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Parsear DATABASE_URL o construir connectionString desde variables individuales
-const connectionString = process.env.DATABASE_URL || 
-  `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
+console.log('🔍 DEBUG - DATABASE_URL:', process.env.DATABASE_URL ? '✅ DEFINIDA' : '❌ UNDEFINED');
+console.log('🔍 DEBUG - NODE_ENV:', process.env.NODE_ENV);
 
-console.log('Conectando a BD con:', {
-  host: process.env.DB_HOST || 'from DATABASE_URL',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'from DATABASE_URL',
-  user: process.env.DB_USER || 'from DATABASE_URL',
-});
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('❌ ERROR: DATABASE_URL no está definida en las variables de entorno');
+  console.error('Variables disponibles:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('DB') || k.includes('PG')));
+}
+
+console.log('Conectando a BD con DATABASE_URL:', connectionString ? '✅ PRESENTE' : '❌ NO PRESENTE');
 
 export const pool = new Pool({
   connectionString: connectionString,
