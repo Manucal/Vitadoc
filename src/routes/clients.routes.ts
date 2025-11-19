@@ -18,7 +18,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
 
     const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
-    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows.role !== 'admin') {
+        if (adminCheckResult.rows.length === 0 || (adminCheckResult.rows[0] as any).role !== 'admin') {
       return res.status(403).json({ error: 'Solo administradores pueden crear clientes' });
     }
 
@@ -48,7 +48,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
-    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows.role !== 'admin') {
+        if (adminCheckResult.rows.length === 0 || (adminCheckResult.rows[0] as any).role !== 'admin') {
       return res.status(403).json({ error: 'Solo administradores pueden listar clientes' });
     }
 
@@ -88,7 +88,7 @@ router.delete('/:clientId', authenticateToken, async (req: AuthRequest, res: Res
 
 
     const adminCheckResult = await query('SELECT role FROM users WHERE id = $1', [req.userId]);
-    if (adminCheckResult.rows.length === 0 || adminCheckResult.rows.role !== 'admin') {
+        if (adminCheckResult.rows.length === 0 || (adminCheckResult.rows[0] as any).role !== 'admin') {
       return res.status(403).json({ error: 'Solo administradores pueden eliminar clientes' });
     }
 
