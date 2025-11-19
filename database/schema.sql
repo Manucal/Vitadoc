@@ -285,3 +285,65 @@ CREATE INDEX IF NOT EXISTS idx_lab_orders_visit ON lab_orders(visit_id);
 CREATE INDEX IF NOT EXISTS idx_procedures_visit ON procedures(visit_id);
 CREATE INDEX IF NOT EXISTS idx_audit_tenant ON audit_log(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
+
+-- ============================================
+-- AGREGAR CAMPOS A TABLA TENANTS
+-- ============================================
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS subscription_plan VARCHAR(50) DEFAULT 'basic';
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS user_count INT DEFAULT 1;
+
+
+-- ============================================
+-- AGREGAR CAMPOS A TABLA USERS
+-- ============================================
+ALTER TABLE users ADD COLUMN IF NOT EXISTS document_id VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;
+
+
+-- ============================================
+-- CREAR TABLA ROLES (Para permisos)
+-- ============================================
+CREATE TABLE IF NOT EXISTS roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT,
+  permissions JSONB DEFAULT '{}'
+);
+
+
+-- Insertar roles estándar
+INSERT INTO roles (name, description, permissions) VALUES
+  ('doctor', 'Médico - Acceso a consultas y pacientes', '{"create_patients": true, "create_visits": true, "see_analytics": false, "manage_users": false, "assist_visits": false}'),
+  ('nurse', 'Enfermera - Soporte médico', '{"create_patients": false, "create_visits": false, "see_analytics": false, "manage_users": false, "assist_visits": true}'),
+  ('admin', 'Administrador clínica', '{"create_patients": true, "create_visits": true, "see_analytics": true, "manage_users": true, "assist_visits": false}'),
+  ('secretary', 'Secretaria - Registro de pacientes', '{"create_patients": true, "create_visits": false, "see_analytics": false, "manage_users": false, "assist_visits": false}')
+ON CONFLICT (name) DO NOTHING;
+
+
+-- ============================================
+-- CREAR TABLA USER_SPECIALIZATIONS
+-- ============================================
+CREATE TABLE IF NOT EXISTS user_specializations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  specialization VARCHAR(255) NOT NULL,
+  professional_license VARCHAR(100),
+  created_date TIMESTAMP DEFAULT NOW()
+);
+
+
+-- ============================================
+-- CREAR ÍNDICES PARA NUEVOS CAMPOS
+-- ============================================
+CREATE INDEX IF NOT EXISTS idx_users_document_id ON users(document_id);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_specializations_user ON user_specializations(user_id);
+
+
+-- ============================================
+-- AGREGAR COLUMNA PARA SEGUIMIENTO DE USUARIOS EN TENANTS
+-- ============================================
+-- Esta es una query de actualización que cuenta usuarios activos
+UPDATE tenants SET user_count = (SELECT COUNT(*) FROM users WHERE tenant_id = tenants.id AND is_active = true);

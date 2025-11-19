@@ -1,40 +1,76 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import authRoutes from './routes/auth.routes';
-import patientRoutes from './routes/patients.routes';
-import medicalVisitsRoutes from './routes/medical-visits.routes';
+
 
 dotenv.config();
+
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
 
+
 // MIDDLEWARE
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],  // ✅ AGREGADO: PATCH
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
+
 app.use(express.json());
 
-// HEALTH CHECK (PRIMERO, antes que las rutas)
+
+// HEALTH CHECK
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
     status: 'VitaDoc API running ✅', 
     timestamp: new Date(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    version: '3.0.0'
   });
 });
 
-// RUTAS (SEGUNDO)
-app.use('/api/auth', authRoutes);
-app.use('/api/patients', patientRoutes);
-app.use('/api/medical-visits', medicalVisitsRoutes);
 
-// ERROR 404 (ÚLTIMO, como fallback)
+// CARGAR RUTAS DE FORMA SEGURA
+try {
+  const authRoutes = require('./routes/auth.routes').default;
+  const patientRoutes = require('./routes/patients.routes').default;
+  const medicalVisitsRoutes = require('./routes/medical-visits.routes').default;
+  const tenantsRoutes = require('./routes/tenants.routes').default;
+  const clientsRoutes = require('./routes/clients.routes').default;
+  const invitationsRoutes = require('./routes/invitations.routes').default;
+  const auditRoutes = require('./routes/audit.routes').default;  // ✨ NUEVA LÍNEA
+
+
+
+  // RUTAS
+  app.use('/api/auth', authRoutes);
+  app.use('/api/patients', patientRoutes);
+  app.use('/api/medical-visits', medicalVisitsRoutes);
+  app.use('/api/tenants', tenantsRoutes);
+  app.use('/api/clients', clientsRoutes);
+  app.use('/api/invitations', invitationsRoutes);
+  app.use('/api/audit', auditRoutes);  // ✨ NUEVA LÍNEA
+
+
+
+  console.log('✅ Todas las rutas cargadas exitosamente');
+} catch (error) {
+  console.error('❌ Error al cargar rutas:', error);
+  process.exit(1);
+}
+
+
+// ERROR 404
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
+
 // INICIAR SERVIDOR
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════╗
 ║   🏥 VITADOC SERVER INICIADO 🏥      ║
@@ -45,9 +81,31 @@ app.listen(PORT, () => {
   URL: http://localhost:${PORT}
   API: http://localhost:${PORT}/api
   
+  ✅ Rutas disponibles:
+    - /api/auth (Autenticación)
+    - /api/patients (Pacientes)
+    - /api/medical-visits (Consultas médicas)
+    - /api/tenants (Gestión de clínicas - B2B)
+    - /api/clients (Gestión de clientes - B2B)
+    - /api/invitations (Invitaciones de usuarios - B2B)
+  
+  ✅ Métodos HTTP soportados: GET, POST, PUT, DELETE, PATCH, OPTIONS
+  
   Presiona Ctrl+C para detener
   `);
 });
 
-export default app;
 
+server.on('error', (error: Error) => {
+  console.error('❌ Error en servidor:', error);
+  process.exit(1);
+});
+
+
+process.on('unhandledRejection', (reason: Error) => {
+  console.error('❌ Unhandled Rejection:', reason);
+  process.exit(1);
+});
+
+
+export default app;
