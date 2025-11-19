@@ -32,14 +32,14 @@ app.get('/api/health', (req: Request, res: Response) => {
 // CARGAR RUTAS DE FORMA SEGURA (ASYNC)
 async function initializeRoutes() {
   try {
-    // Cargar todos los módulos de rutas
-    const authRoutes = (await import('./routes/auth.routes')).default;
-    const patientRoutes = (await import('./routes/patients.routes')).default;
-    const medicalVisitsRoutes = (await import('./routes/medical-visits.routes')).default;
-    const tenantsRoutes = (await import('./routes/tenants.routes')).default;
-    const clientsRoutes = (await import('./routes/clients.routes')).default;
-    const invitationsRoutes = (await import('./routes/invitations.routes')).default;
-    const auditRoutes = (await import('./routes/audit.routes')).default;
+    // Cargar todos los módulos de rutas (CON .js)
+    const authRoutes = (await import('./routes/auth.routes.js')).default;
+    const patientRoutes = (await import('./routes/patients.routes.js')).default;
+    const medicalVisitsRoutes = (await import('./routes/medical-visits.routes.js')).default;
+    const tenantsRoutes = (await import('./routes/tenants.routes.js')).default;
+    const clientsRoutes = (await import('./routes/clients.routes.js')).default;
+    const invitationsRoutes = (await import('./routes/invitations.routes.js')).default;
+    const auditRoutes = (await import('./routes/audit.routes.js')).default;
 
     // REGISTRAR RUTAS
     app.use('/api/auth', authRoutes);
