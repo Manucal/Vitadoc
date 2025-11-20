@@ -29,6 +29,16 @@ app.use(cors({
 
 app.use(express.json());
 
+// HEALTH CHECK EN RAÍZ
+app.get('/', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'VitaDoc API running ✅', 
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV,
+    version: '3.0.0'
+  });
+});
+
 // HEALTH CHECK - ENDPOINT PUBLICO
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
