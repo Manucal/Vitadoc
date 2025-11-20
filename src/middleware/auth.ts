@@ -4,9 +4,9 @@ import { verifyToken } from '../config/auth.js';
 export interface AuthRequest extends Request {
   userId?: string;
   clientId?: string;
-  body?: any;
-  params?: any;
-  query?: any;
+  body: any;
+  params: any;
+  query: any;
   headers: any;
 }
 
