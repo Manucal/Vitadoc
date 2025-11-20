@@ -1,6 +1,16 @@
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
+// IMPORTACIÓN DIRECTA DE RUTAS:
+import authRoutes from './routes/auth.routes.js';
+import patientRoutes from './routes/patients.routes.js';
+import medicalVisitsRoutes from './routes/medical-visits.routes.js';
+import tenantsRoutes from './routes/tenants.routes.js';
+import clientsRoutes from './routes/clients.routes.js';
+import invitationsRoutes from './routes/invitations.routes.js';
+import auditRoutes from './routes/audit.routes.js';
+
 import { initializeDatabase } from './database/init.js';
 
 dotenv.config();
@@ -8,7 +18,6 @@ dotenv.config();
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
 
-// MIDDLEWARE - CORS CONFIGURADO PARA PRODUCCIÓN
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? 'https://vitadoc-orpin.vercel.app'
@@ -20,55 +29,31 @@ app.use(cors({
 
 app.use(express.json());
 
-// CARGAR RUTAS DE FORMA SEGURA (ASYNC)
-async function initializeRoutes() {
-  try {
-    // ✅ INICIALIZAR BASE DE DATOS PRIMERO
-    await initializeDatabase();
+// Endpoint healthcheck fijo y visible
+app.get('/api/health', (req: Request, res: Response) => {
+  res.json({ 
+    status: 'VitaDoc API running ✅', 
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV,
+    version: '3.0.0'
+  });
+});
 
-    // ✅ HEALTH CHECK - DEFINIDA AQUÍ (ANTES de otras rutas)
-    app.get('/api/health', (req: Request, res: Response) => {
-      res.json({ 
-        status: 'VitaDoc API running ✅', 
-        timestamp: new Date(),
-        environment: process.env.NODE_ENV,
-        version: '3.0.0'
-      });
-    });
+// REGISTRAR RUTAS
+app.use('/api/auth', authRoutes);
+app.use('/api/patients', patientRoutes);
+app.use('/api/medical-visits', medicalVisitsRoutes);
+app.use('/api/tenants', tenantsRoutes);
+app.use('/api/clients', clientsRoutes);
+app.use('/api/invitations', invitationsRoutes);
+app.use('/api/audit', auditRoutes);
 
-    // Cargar todos los módulos de rutas (CON .js)
-    const authRoutes = (await import('./routes/auth.routes.js')).default;
-    const patientRoutes = (await import('./routes/patients.routes.js')).default;
-    const medicalVisitsRoutes = (await import('./routes/medical-visits.routes.js')).default;
-    const tenantsRoutes = (await import('./routes/tenants.routes.js')).default;
-    const clientsRoutes = (await import('./routes/clients.routes.js')).default;
-    const invitationsRoutes = (await import('./routes/invitations.routes.js')).default;
-    const auditRoutes = (await import('./routes/audit.routes.js')).default;
-
-    // REGISTRAR RUTAS
-    app.use('/api/auth', authRoutes);
-    app.use('/api/patients', patientRoutes);
-    app.use('/api/medical-visits', medicalVisitsRoutes);
-    app.use('/api/tenants', tenantsRoutes);
-    app.use('/api/clients', clientsRoutes);
-    app.use('/api/invitations', invitationsRoutes);
-    app.use('/api/audit', auditRoutes);
-
-    console.log('✅ Todas las rutas cargadas exitosamente');
-  } catch (error) {
-    console.error('❌ Error al cargar rutas:', error);
-    process.exit(1);
-  }
-}
-
-// ERROR 404
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-// INICIAR SERVIDOR CON RUTAS CARGADAS
 async function startServer() {
-  await initializeRoutes();
+  await initializeDatabase();
 
   const server = app.listen(PORT, () => {
     console.log(`
@@ -80,16 +65,6 @@ async function startServer() {
   Entorno: ${process.env.NODE_ENV}
   URL: http://localhost:${PORT}
   API: http://localhost:${PORT}/api
-  
-  ✅ Rutas disponibles:
-    - /api/health (Health Check)
-    - /api/auth (Autenticación)
-    - /api/patients (Pacientes)
-    - /api/medical-visits (Consultas médicas)
-    - /api/tenants (Gestión de clínicas - B2B)
-    - /api/clients (Gestión de clientes - B2B)
-    - /api/invitations (Invitaciones de usuarios - B2B)
-    - /api/audit (Auditoría)
   
   ✅ Métodos HTTP soportados: GET, POST, PUT, DELETE, PATCH, OPTIONS
   
@@ -108,7 +83,6 @@ async function startServer() {
   });
 }
 
-// Ejecutar servidor
 startServer().catch((error) => {
   console.error('❌ Error al iniciar servidor:', error);
   process.exit(1);
