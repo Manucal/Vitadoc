@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.VITE_API_URL || 'https://vitadoc-backend.onrender.com';
+// ✅ CORRECTO: URL directa (sin process.env que causa problemas)
+const API_BASE_URL = 'https://vitadoc-backend.onrender.com';
 
 // ⚠️ IMPORTANTE: Agregar /api al baseURL
 const api = axios.create({
