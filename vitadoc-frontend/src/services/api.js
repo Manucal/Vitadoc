@@ -1,5 +1,6 @@
 import axios from 'axios';
 
+
 // ✅ CORRECTO: URL directa (sin process.env que causa problemas)
 const API_BASE_URL = 'https://vitadoc-backend.onrender.com';
 
