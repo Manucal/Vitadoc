@@ -1,9 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = process.env.VITE_API_URL || 'https://vitadoc-backend.onrender.com';
 
+// ⚠️ IMPORTANTE: Agregar /api al baseURL
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: `${API_BASE_URL}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -38,7 +39,7 @@ api.interceptors.response.use(
 
     if (status === 401) {
       // Token expiró o inválido
-      console.warn('⚠️ Sesión expirada (401)');
+      console.warn('⚠️ Sesión expirado (401)');
       localStorage.removeItem('authToken');
       window.location.href = '/login';
       return Promise.reject(error);

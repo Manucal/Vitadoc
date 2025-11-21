@@ -22,6 +22,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
+      // ✅ AHORA CORRECTO: /auth/me (sin /api porque api.js ya lo agrrega)
       const response = await api.get('/auth/me');
       setUser(response.data.data);
       setError(null);
@@ -36,7 +37,10 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const API_URL = process.env.VITE_API_URL || 'https://vitadoc-backend.onrender.com';
+      
+      // ✅ CORRECTO: /api/auth/login (full path con /api)
+      const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -53,7 +57,7 @@ export function AuthProvider({ children }) {
         id: data.userId,
         tenant_id: data.clientId,
         isSuperAdmin: data.isSuperAdmin,
-        role: 'admin', // ← Asegúrate que lo devuelva el backend
+        role: 'admin',
       });
       setError(null);
 
@@ -66,6 +70,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
+      // ✅ CORRECTO: /auth/logout (sin /api porque api.js ya lo agrega)
       await api.post('/auth/logout');
     } catch (err) {
       console.error('Error al logout:', err);
