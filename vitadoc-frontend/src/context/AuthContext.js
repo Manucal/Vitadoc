@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      // ✅ AHORA CORRECTO: /auth/me (sin /api porque api.js ya lo agrrega)
+      // ✅ CORRECTO: Usar api.js (que ya tiene /api en baseURL)
       const response = await api.get('/auth/me');
       setUser(response.data.data);
       setError(null);
@@ -37,20 +37,14 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const API_URL = process.env.VITE_API_URL || 'https://vitadoc-backend.onrender.com';
+      // ✅ CORRECTO: Usar api.js en lugar de fetch directamente
+      // api.js ya tiene:
+      // - baseURL: https://vitadoc-backend.onrender.com/api
+      // - Interceptores para JWT
+      // - Manejo de CORS
+      const response = await api.post('/auth/login', { username, password });
       
-      // ✅ CORRECTO: /api/auth/login (full path con /api)
-      const response = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error);
-      }
+      const data = response.data;
 
       localStorage.setItem('authToken', data.token);
       setUser({
@@ -70,7 +64,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      // ✅ CORRECTO: /auth/logout (sin /api porque api.js ya lo agrega)
+      // ✅ CORRECTO: Usar api.js
       await api.post('/auth/logout');
     } catch (err) {
       console.error('Error al logout:', err);
