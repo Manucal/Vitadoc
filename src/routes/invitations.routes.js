@@ -1,11 +1,11 @@
-import { Router, Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import { Router } from 'express';
+import { authenticateToken } from '../middleware/auth.js';
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
 // GET - Listar invitaciones
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     res.json({ success: true, message: 'Listar invitaciones', invitations: [] });
   } catch (error) {
@@ -15,7 +15,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 });
 
 // POST - Crear invitación
-router.post('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
     const { email, fullName, role } = req.body;
 

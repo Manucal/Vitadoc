@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool } from 'pg';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -22,7 +22,7 @@ export const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
-pool.on('error', (err: Error) => {
+pool.on('error', (err) => {
   console.error('❌ Error en conexión de base de datos:', err.message);
 });
 
@@ -30,6 +30,6 @@ pool.on('connect', () => {
   console.log('✅ Conexión a base de datos establecida');
 });
 
-export const query = (text: string, params?: any[]) => pool.query(text, params);
+export const query = (text, params) => pool.query(text, params);
 
-export const getClient = async (): Promise<PoolClient> => await pool.connect();
+export const getClient = async () => await pool.connect();

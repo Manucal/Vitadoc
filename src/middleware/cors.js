@@ -1,6 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
-
-const corsMiddleware = (req: Request, res: Response, next: NextFunction) => {
+const corsMiddleware = (req, res, next) => {
   const allowedOrigins = [
     'https://vitadoc-orpin.vercel.app',        // Tu frontend en Vercel
     'https://vitadoc.com.co',                   // Tu dominio (cuando esté configurado)

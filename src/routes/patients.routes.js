@@ -1,11 +1,11 @@
-import express, { Response, Request } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import express from 'express';
+import { authenticateToken } from '../middleware/auth.js';
 import { query } from '../config/database.js';
 
 const router = express.Router();
 
 // =============== CREATE - REGISTRAR NUEVO PACIENTE ===============
-router.post('/register', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/register', authenticateToken, async (req, res) => {
   try {
     const {
       document_type, document_id, full_name, birth_date, gender, bloodtype,
@@ -65,7 +65,7 @@ router.post('/register', authenticateToken, async (req: AuthRequest, res: Respon
 });
 
 // =============== SEARCH - BUSCAR PACIENTE POR DOCUMENTO (por query param) ===============
-router.get('/search', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/search', authenticateToken, async (req, res) => {
   try {
     const documentId = req.query.documentId;
     if (!documentId) {
@@ -86,7 +86,7 @@ router.get('/search', authenticateToken, async (req: AuthRequest, res: Response)
 });
 
 // =============== SEARCH - BUSCAR PACIENTE POR DOCUMENTO (por URL param) ===============
-router.get('/search/:documentId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/search/:documentId', authenticateToken, async (req, res) => {
   try {
     const { documentId } = req.params;
 
@@ -142,7 +142,7 @@ router.get('/search/:documentId', authenticateToken, async (req: AuthRequest, re
 });
 
 // =============== READ - OBTENER TODOS LOS PACIENTES ===============
-router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticateToken, async (req, res) => {
   try {
     const result = await query(
       `SELECT id, full_name, document_type, document_id, birth_date, phone, email, gender, bloodtype, created_date
@@ -162,7 +162,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
 // =============== READ - OBTENER PACIENTE POR ID ===============
 // NOTA: Este debe ser el ÚLTIMO GET para evitar conflicto con /search/:documentId
-router.get('/:patientId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/:patientId', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
     const result = await query(
@@ -205,9 +205,8 @@ router.get('/:patientId', authenticateToken, async (req: AuthRequest, res: Respo
   }
 });
 
-
 // =============== UPDATE - ACTUALIZAR PACIENTE ===============
-router.put('/:patientId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.put('/:patientId', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
     const { document_type, document_id, full_name, birth_date, gender, bloodtype, phone, email, address, city, department, occupation, marital_status, education_level } = req.body;
@@ -250,7 +249,7 @@ router.put('/:patientId', authenticateToken, async (req: AuthRequest, res: Respo
 });
 
 // =============== DELETE - ELIMINAR PACIENTE ===============
-router.delete('/:patientId', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.delete('/:patientId', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
     const existsResult = await query(

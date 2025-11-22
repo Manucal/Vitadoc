@@ -1,7 +1,5 @@
-// src/routes/audit.routes.ts
-
-import express, { Request, Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import express from 'express';
+import { authenticateToken } from '../middleware/auth.js';
 import { query } from '../config/database.js';
 import { getAuditLogs, getAuditStats } from '../services/auditService.js';
 
@@ -11,7 +9,7 @@ const router = express.Router();
  * GET /api/audit/logs
  * Obtener logs de auditoría
  */
-router.get('/logs', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/logs', authenticateToken, async (req, res) => {
   try {
     const { tenantId, action, limit = '100', offset = '0' } = req.query;
 
@@ -33,11 +31,11 @@ router.get('/logs', authenticateToken, async (req: AuthRequest, res: Response) =
     }
 
     const logs = await getAuditLogs(
-      tenantId as string,
+      tenantId,
       undefined,
-      action as string,
-      parseInt(limit as string),
-      parseInt(offset as string)
+      action,
+      parseInt(limit),
+      parseInt(offset)
     );
 
     res.json({
@@ -58,7 +56,7 @@ router.get('/logs', authenticateToken, async (req: AuthRequest, res: Response) =
  * GET /api/audit/stats
  * Obtener estadísticas de auditoría
  */
-router.get('/stats', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/stats', authenticateToken, async (req, res) => {
   try {
     const { tenantId } = req.query;
 
@@ -79,7 +77,7 @@ router.get('/stats', authenticateToken, async (req: AuthRequest, res: Response) 
       return res.status(403).json({ error: 'Solo super-admin puede ver estadísticas' });
     }
 
-    const stats = await getAuditStats(tenantId as string);
+    const stats = await getAuditStats(tenantId);
 
     res.json({
       success: true,

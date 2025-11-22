@@ -1,20 +1,4 @@
-// src/services/auditService.ts
-
 import { query } from '../config/database.js';
-import { Request } from 'express';
-
-export interface AuditLogInput {
-  tenantId: string | null;
-  actorId: string;
-  action: string;
-  resourceType: string;
-  resourceId?: string;
-  status: 'SUCCESS' | 'FAILED' | 'DENIED';
-  changes?: any;
-  errorMessage?: string;
-  req?: Request;
-  metadata?: any;
-}
 
 /**
  * Registra una acción en audit_logs
@@ -30,7 +14,7 @@ export const logAction = async ({
   errorMessage,
   req,
   metadata
-}: AuditLogInput) => {
+}) => {
   try {
     const ipAddress = req?.ip || req?.headers['x-forwarded-for'] || 'UNKNOWN';
     const userAgent = req?.get('user-agent') || 'UNKNOWN';
@@ -65,15 +49,15 @@ export const logAction = async ({
  * Obtiene logs de auditoría (con filtros)
  */
 export const getAuditLogs = async (
-  tenantId?: string,
-  actorId?: string,
-  action?: string,
-  limit: number = 100,
-  offset: number = 0
+  tenantId,
+  actorId,
+  action,
+  limit = 100,
+  offset = 0
 ) => {
   try {
     let queryText = 'SELECT * FROM audit_logs WHERE 1=1';
-    const params: any[] = [];
+    const params = [];
 
     if (tenantId) {
       params.push(tenantId);
@@ -109,7 +93,7 @@ export const getAuditLogs = async (
 /**
  * Obtiene estadísticas de auditoría
  */
-export const getAuditStats = async (tenantId?: string) => {
+export const getAuditStats = async (tenantId) => {
   try {
     let queryText = `
       SELECT 
@@ -120,7 +104,7 @@ export const getAuditStats = async (tenantId?: string) => {
       FROM audit_logs
       WHERE 1=1
     `;
-    const params: any[] = [];
+    const params = [];
 
     if (tenantId) {
       params.push(tenantId);
@@ -141,7 +125,7 @@ export const getAuditStats = async (tenantId?: string) => {
 /**
  * Limpia logs antiguos (>90 días)
  */
-export const cleanOldLogs = async (daysOld: number = 90) => {
+export const cleanOldLogs = async (daysOld = 90) => {
   try {
     const result = await query(
       `DELETE FROM audit_logs 

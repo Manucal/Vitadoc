@@ -1,5 +1,5 @@
-import express, { Response } from 'express';
-import { AuthRequest, authenticateToken } from '../middleware/auth.js';
+import express from 'express';
+import { authenticateToken } from '../middleware/auth.js';
 import { hashPassword, comparePasswords, generateToken } from '../config/auth.js';
 import { query } from '../config/database.js';
 
@@ -8,7 +8,7 @@ const router = express.Router();
 // ============================================
 // LOGIN
 // ============================================
-router.post('/login', async (req: AuthRequest, res: Response) => {
+router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -53,7 +53,7 @@ router.post('/login', async (req: AuthRequest, res: Response) => {
 // ============================================
 // VERIFICAR TOKEN
 // ============================================
-router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/me', authenticateToken, async (req, res) => {
   try {
     const result = await query(
       'SELECT id, username, email, full_name, role, status, tenant_id FROM users WHERE id = $1',
@@ -97,7 +97,7 @@ router.get('/me', authenticateToken, async (req: AuthRequest, res: Response) => 
 // ============================================
 // LOGOUT (opcional - client-side)
 // ============================================
-router.post('/logout', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/logout', authenticateToken, async (req, res) => {
   try {
     res.json({
       success: true,
@@ -112,7 +112,7 @@ router.post('/logout', authenticateToken, async (req: AuthRequest, res: Response
 // ============================================
 // 🆕 RESET PASSWORD - SUPER-ADMIN ONLY
 // ============================================
-router.post('/reset-password', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.post('/reset-password', authenticateToken, async (req, res) => {
   try {
     const { userId, newPassword } = req.body;
 
@@ -181,6 +181,5 @@ router.post('/reset-password', authenticateToken, async (req: AuthRequest, res: 
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 export default router;

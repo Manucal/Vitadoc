@@ -1,20 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
 import { verifyToken } from '../config/auth.js';
 
-export interface AuthRequest extends Request {
-  userId?: string;
-  clientId?: string;
-  body: any;
-  params: any;
-  query: any;
-  headers: any;
-}
-
-export const authenticateToken = (
-  req: AuthRequest,
-  res: Response,
-  next: NextFunction
-) => {
+export const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -27,7 +13,7 @@ export const authenticateToken = (
     return res.status(403).json({ error: 'Token inválido o expirado' });
   }
 
-  req.userId = (decoded as any).userId;
-  req.clientId = (decoded as any).clientId;
+  req.userId = decoded.userId;
+  req.clientId = decoded.clientId;
   next();
 };
