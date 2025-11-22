@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3001;
 
 // ✅ CORS CONFIGURADO CORRECTAMENTE PARA PRODUCCIÓN
 const ALLOWED_ORIGINS = {
-  production: ['https://vitadoc.com.co', 'https://www.vitadoc.com.co'],
+  production: ['https://vitadoc.com.co', 'https://www.vitadoc.com.co','https://vitadoc-orpin.vercel.app'],
   development: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173']
 };
 
