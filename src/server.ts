@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDatabase } from './database/init.js';
 
+
 // IMPORTAR RUTAS DIRECTAMENTE (ESTÁTICO, SIN AWAIT)
 import authRoutes from './routes/auth.routes.js';
 import patientRoutes from './routes/patients.routes.js';
@@ -12,22 +13,36 @@ import clientsRoutes from './routes/clients.routes.js';
 import invitationsRoutes from './routes/invitations.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 
+
 dotenv.config();
+
 
 const app: Express = express();
 const PORT = process.env.PORT || 3001;
 
-// MIDDLEWARE - CORS CONFIGURADO PARA PRODUCCIÓN
+
+// ✅ CORS CONFIGURADO CORRECTAMENTE PARA PRODUCCIÓN
+const ALLOWED_ORIGINS = {
+  production: ['https://vitadoc.com.co', 'https://www.vitadoc.com.co'],
+  development: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173']
+};
+
+const getOrigins = () => {
+  return process.env.NODE_ENV === 'production' 
+    ? ALLOWED_ORIGINS.production 
+    : ALLOWED_ORIGINS.development;
+};
+
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? 'https://vitadoc-orpin.vercel.app'
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+  origin: getOrigins(),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+
 app.use(express.json());
+
 
 // HEALTH CHECK EN RAÍZ
 app.get('/', (req: Request, res: Response) => {
@@ -39,6 +54,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
+
 // HEALTH CHECK - ENDPOINT PUBLICO
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({ 
@@ -49,6 +65,7 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+
 // REGISTRAR RUTAS DIRECTAMENTE (SIN AWAIT)
 app.use('/api/auth', authRoutes);
 app.use('/api/patients', patientRoutes);
@@ -58,16 +75,19 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/invitations', invitationsRoutes);
 app.use('/api/audit', auditRoutes);
 
+
 // ERROR 404
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
+
 
 // INICIAR SERVIDOR
 async function startServer() {
   try {
     // INICIALIZAR BASE DE DATOS
     await initializeDatabase();
+
 
     const server = app.listen(PORT, () => {
       console.log(`
@@ -96,10 +116,12 @@ async function startServer() {
       `);
     });
 
+
     server.on('error', (error: Error) => {
       console.error('❌ Error en servidor:', error);
       process.exit(1);
     });
+
 
     process.on('unhandledRejection', (reason: Error) => {
       console.error('❌ Unhandled Rejection:', reason);
@@ -111,8 +133,9 @@ async function startServer() {
   }
 }
 
+
 // Ejecutar servidor
 startServer();
 
+
 export default app;
-"// updated" 
