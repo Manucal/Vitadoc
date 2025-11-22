@@ -6,46 +6,68 @@ import { query } from '../config/database.js';
 const router = express.Router();
 
 // ============================================
-// LOGIN
+// LOGIN CON LOGS DETALLADOS
 // ============================================
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    console.log(`\n[LOGIN] === INICIANDO LOGIN ===`);
+    console.log(`[LOGIN] 1. Intento de login con username: "${username}"`);
+
     if (!username || !password) {
+      console.log(`[LOGIN] ✗ ERROR: Username o password vacío`);
       return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
     }
 
+    console.log(`[LOGIN] 2. Buscando usuario en BD...`);
     const result = await query(
       'SELECT id, tenant_id, password_hash, role FROM users WHERE username = $1',
       [username]
     );
 
+    console.log(`[LOGIN] 3. Resultado de búsqueda: ${result.rows.length} usuarios encontrados`);
+
     if (result.rows.length === 0) {
+      console.log(`[LOGIN] ✗ ERROR: Usuario "${username}" NO encontrado en BD`);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
     const user = result.rows[0];
+    console.log(`[LOGIN] 4. Usuario encontrado:`);
+    console.log(`[LOGIN]    - ID: ${user.id}`);
+    console.log(`[LOGIN]    - Role: ${user.role}`);
+    console.log(`[LOGIN]    - TenantID: ${user.tenant_id}`);
+    console.log(`[LOGIN]    - Password hash existe: ${user.password_hash ? 'SÍ' : 'NO'}`);
+
+    console.log(`[LOGIN] 5. Comparando passwords...`);
     const passwordValid = await comparePasswords(password, user.password_hash);
+    console.log(`[LOGIN] 6. Resultado comparación: ${passwordValid ? '✓ VÁLIDA' : '✗ INVÁLIDA'}`);
 
     if (!passwordValid) {
+      console.log(`[LOGIN] ✗ ERROR: Password INCORRECTO para usuario "${username}"`);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
+    console.log(`[LOGIN] 7. Generando token...`);
     const token = generateToken(user.id, user.tenant_id);
-
-    // ✅ AGREGAR isSuperAdmin
     const isSuperAdmin = user.role === 'admin' && user.tenant_id === null;
+
+    console.log(`[LOGIN] ✓ LOGIN EXITOSO para usuario: "${username}"`);
+    console.log(`[LOGIN] ✓ Token generado: ${token.substring(0, 50)}...`);
+    console.log(`[LOGIN] ✓ IsSuperAdmin: ${isSuperAdmin}`);
+    console.log(`[LOGIN] === FIN LOGIN ===\n`);
 
     res.json({
       success: true,
       token,
       userId: user.id,
       clientId: user.tenant_id,
-      isSuperAdmin  // ✅ ESTA LÍNEA
+      isSuperAdmin
     });
   } catch (error) {
-    console.error('Error en login:', error);
+    console.error(`[LOGIN] ✗ ERROR CRÍTICO:`, error);
+    console.error(`[LOGIN] Stack:`, error.stack);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
