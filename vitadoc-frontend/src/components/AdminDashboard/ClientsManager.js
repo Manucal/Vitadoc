@@ -6,6 +6,7 @@ import TenantUsersManager from './TenantUsersManager';
 import DeleteConfirmModal from '../DeleteConfirmModal';
 import '../../styles/ClientsManager.css';
 
+
 export default function ClientsManager({ onUpdate, onSelectTenant }) {
   const [tenants, setTenants] = useState([]);
   const [showForm, setShowForm] = useState(false);
@@ -24,6 +25,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
   const [deleteStep, setDeleteStep] = useState(1);
   const [isDeleting, setIsDeleting] = useState(false);
 
+
   const [formData, setFormData] = useState({
     name: '',
     contact_email: '',
@@ -33,9 +35,11 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
   });
   const [editingId, setEditingId] = useState(null);
 
+
   useEffect(() => {
     fetchTenants();
   }, []);
+
 
   const fetchTenants = async () => {
     try {
@@ -51,6 +55,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -59,10 +64,12 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }));
   };
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
+
 
       if (editingId) {
         const updateToast = toast.loading('⏳ Actualizando clínica...');
@@ -77,6 +84,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         toast.error('Para crear nueva clínica, usa el formulario de Crear Clínica en Resumen');
         return;
       }
+
 
       setFormData({
         name: '',
@@ -94,6 +102,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
+
   const handleEdit = (tenant) => {
     setFormData({
       name: tenant.name,
@@ -106,12 +115,15 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     setShowForm(true);
   };
 
+
   const handleDeactivateTenant = async (tenantId, tenantName) => {
     const confirmed = window.confirm(
       `⚠️ ¿Estás seguro que quieres DESACTIVAR la clínica "${tenantName}"?\n\nLos usuarios de esta clínica NO PODRÁN acceder al sistema.`
     );
 
+
     if (!confirmed) return;
+
 
     try {
       setLoading(true);
@@ -136,12 +148,15 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
+
   const handleReactivateTenant = async (tenantId, tenantName) => {
     const confirmed = window.confirm(
       `✅ ¿Estás seguro que quieres REACTIVAR la clínica "${tenantName}"?\n\nLos usuarios podrán acceder nuevamente.`
     );
 
+
     if (!confirmed) return;
+
 
     try {
       setLoading(true);
@@ -166,6 +181,39 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
+
+  // ✅ NUEVA FUNCIÓN: Cambiar plan de suscripción
+  const handleChangePlan = async (tenantId, tenantName, currentPlan, newPlan) => {
+    const confirmed = window.confirm(
+      `📋 ¿Cambiar el plan de "${tenantName}"?\n\nDe: ${currentPlan.toUpperCase()}\nA: ${newPlan.toUpperCase()}`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setLoading(true);
+      const changeToast = toast.loading('⏳ Cambiando plan...');
+      
+      await api.put(`/tenants/${tenantId}`, { subscription_plan: newPlan });
+      
+      setTenants((prev) =>
+        prev.map((t) =>
+          t.id === tenantId ? { ...t, subscription_plan: newPlan } : t
+        )
+      );
+      
+      toast.dismiss(changeToast);
+      toast.success(`✓ Plan actualizado a ${newPlan.toUpperCase()}`);
+      onUpdate && onUpdate();
+    } catch (error) {
+      console.error('Error changing plan:', error);
+      toast.error('❌ Error al cambiar plan: ' + error.response?.data?.error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   const handleDeleteTenant = (tenantId, tenantName) => {
     setDeleteModal({
       isOpen: true,
@@ -175,11 +223,13 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     setDeleteStep(1);
   };
 
+
   const handleConfirmDelete = async () => {
     if (deleteStep === 1) {
       setDeleteStep(2);
       return;
     }
+
 
     if (deleteStep === 2) {
       try {
@@ -202,11 +252,13 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
+
   const handleCancelDelete = () => {
     setDeleteModal({ isOpen: false, tenantId: null, tenantName: null });
     setDeleteStep(1);
     setIsDeleting(false);
   };
+
 
   const handleManageUsers = (tenant) => {
     setSelectedTenant(tenant);
@@ -216,17 +268,22 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     }
   };
 
+
   const filteredTenants = tenants.filter((tenant) => {
     const matchesSearch =
       tenant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       tenant.contact_email.toLowerCase().includes(searchTerm.toLowerCase());
 
+
     const matchesStatus = filterStatus === 'all' || tenant.status === filterStatus;
+
 
     const matchesPlan = filterPlan === 'all' || tenant.subscription_plan === filterPlan;
 
+
     return matchesSearch && matchesStatus && matchesPlan;
   });
+
 
   const planColors = {
     basic: '#3773f5',
@@ -235,12 +292,14 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
     enterprise: '#bb62ef',
   };
 
+
   const planPrices = {
     basic: '$99K/mes',
     standard: '$189K/mes',
     premium: '$299K/mes',
     enterprise: 'Personalizado',
   };
+
 
   return (
     <div className="clients-manager">
@@ -250,6 +309,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
           <p className="header-subtitle">Administra todas las clínicas registradas en VitaDoc</p>
         </div>
       </div>
+
 
       <div className="filters-container">
         <div className="search-box">
@@ -261,6 +321,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
           />
         </div>
 
+
         <div className="filter-group">
           <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
             <option value="all">📊 Todos los estados</option>
@@ -269,6 +330,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
             <option value="suspended">🚫 Suspendidos</option>
           </select>
         </div>
+
 
         <div className="filter-group">
           <select value={filterPlan} onChange={(e) => setFilterPlan(e.target.value)}>
@@ -281,9 +343,11 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         </div>
       </div>
 
+
       {showForm && (
         <form className="client-form" onSubmit={handleSubmit}>
           <h3>✏️ Editar Clínica</h3>
+
 
           <div className="form-row">
             <div className="form-group">
@@ -310,6 +374,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
             </div>
           </div>
 
+
           <div className="form-row">
             <div className="form-group">
               <label>Teléfono</label>
@@ -331,6 +396,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
             </div>
           </div>
 
+
           <div className="form-row">
             <div className="form-group">
               <label>Plan de Suscripción</label>
@@ -346,6 +412,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
               </select>
             </div>
           </div>
+
 
           <div className="form-actions">
             <button type="submit" className="btn-submit" disabled={loading}>
@@ -364,6 +431,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
           </div>
         </form>
       )}
+
 
       {loading && !showForm ? (
         <div className="loading">⏳ Cargando clínicas...</div>
@@ -391,6 +459,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                   </span>
                 </div>
 
+
                 <div className="card-body">
                   <p>
                     <strong>Email:</strong> {tenant.contact_email}
@@ -399,11 +468,13 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                     <strong>Teléfono:</strong> {tenant.contact_phone || 'No registrado'}
                   </p>
 
+
                   <div className="plan-badge" style={{ borderLeftColor: planColors[tenant.subscription_plan] }}>
                     <strong>Plan:</strong> {tenant.subscription_plan.toUpperCase()}
                     <br />
                     <small>{planPrices[tenant.subscription_plan]}</small>
                   </div>
+
 
                   <div className="limits">
                     <div className="limit-item">
@@ -412,6 +483,7 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                     </div>
                   </div>
                 </div>
+
 
                 <div className="card-footer">
                   <button
@@ -424,6 +496,38 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
                   <button className="btn-edit" onClick={() => handleEdit(tenant)}>
                     ✏️ Editar
                   </button>
+
+                  {/* ✅ NUEVOS BOTONES: Cambiar plan */}
+                  <div className="btn-group-plan">
+                    {tenant.subscription_plan !== 'standard' && (
+                      <button 
+                        className="btn-upgrade-plan" 
+                        onClick={() => handleChangePlan(tenant.id, tenant.name, tenant.subscription_plan, 'standard')}
+                        title="Actualizar a Standard (3 usuarios)"
+                      >
+                        ⬆️ Standard
+                      </button>
+                    )}
+                    {tenant.subscription_plan !== 'premium' && (
+                      <button 
+                        className="btn-upgrade-plan" 
+                        onClick={() => handleChangePlan(tenant.id, tenant.name, tenant.subscription_plan, 'premium')}
+                        title="Actualizar a Premium (5 usuarios)"
+                      >
+                        ⬆️ Premium
+                      </button>
+                    )}
+                    {tenant.subscription_plan !== 'enterprise' && (
+                      <button 
+                        className="btn-upgrade-plan" 
+                        onClick={() => handleChangePlan(tenant.id, tenant.name, tenant.subscription_plan, 'enterprise')}
+                        title="Actualizar a Enterprise (ilimitado)"
+                      >
+                        ⬆️ Enterprise
+                      </button>
+                    )}
+                  </div>
+
                   {tenant.status === 'inactive' ? (
                     <button 
                       className="btn-reactivate" 
@@ -454,12 +558,14 @@ export default function ClientsManager({ onUpdate, onSelectTenant }) {
         </div>
       )}
 
+
       {showUsersManager && selectedTenant && (
         <TenantUsersManager
           tenantId={selectedTenant.id}
           onClose={() => setShowUsersManager(false)}
         />
       )}
+
 
       <DeleteConfirmModal
         isOpen={deleteModal.isOpen}
