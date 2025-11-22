@@ -3,12 +3,10 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import AddDiagnosis from './AddDiagnosis';
 import AddTreatment from './AddTreatment';
-import DeleteConfirmModal from '../components/DeleteConfirmModal'; // ✅ AGREGADO
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import { getNextTabAfterSave, TAB_SEQUENCE } from '../config/tabSequence-config';
-import { validateVitalSigns } from '../utils/visitDetailsHelpers'; // ✅ AGREGADO
+import { validateVitalSigns } from '../utils/visitDetailsHelpers';
 import '../styles/VisitDetails.css';
-
-
 
 
 export default function VisitDetails() {
@@ -23,8 +21,9 @@ export default function VisitDetails() {
   const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
 
-
-
+  // ✅ NUEVO: Estados para editar diagnósticos y tratamientos
+  const [editingDiagnosis, setEditingDiagnosis] = useState(null);
+  const [editingTreatment, setEditingTreatment] = useState(null);
 
   // ✅ ESTADO PARA NUEVA CONSULTA
   const [newConsultationData, setNewConsultationData] = useState({
@@ -33,10 +32,6 @@ export default function VisitDetails() {
   const [newConsultationLoading, setNewConsultationLoading] = useState(false);
   const [newConsultationError, setNewConsultationError] = useState('');
   const [consultationCode, setConsultationCode] = useState('');
-  // ✅ ELIMINADO: const [savedReasonForVisit, setSavedReasonForVisit] = useState('');
-
-
-
 
   const [editData, setEditData] = useState({
     currentIllness: '',
@@ -67,9 +62,6 @@ export default function VisitDetails() {
     recommendations: ''
   });
 
-
-
-
   useEffect(() => {
     if (visitId) {
       fetchVisitDetails();
@@ -78,9 +70,6 @@ export default function VisitDetails() {
       setActiveTab('new-consultation');
     }
   }, [visitId]);
-
-
-
 
   const fetchVisitDetails = async () => {
     try {
@@ -126,13 +115,77 @@ export default function VisitDetails() {
     }
   };
 
+  // ✅ EDITAR DIAGNÓSTICO
+  const handleEditDiagnosis = (diagnosis) => {
+    setEditingDiagnosis(diagnosis);
+    setShowAddDiagnosis(true);
+  };
+
+  // ✅ ELIMINAR DIAGNÓSTICO
+  const handleDeleteDiagnosis = async (diagnosisId) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este diagnóstico?')) {
+      try {
+        const response = await api.delete(
+          `/medical-visits/${visitId}/diagnoses/${diagnosisId}`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        );
+
+        if (response.data.success) {
+          setVisit(prev => ({
+            ...prev,
+            diagnoses: prev.diagnoses.filter(d => d.id !== diagnosisId)
+          }));
+          alert('✓ Diagnóstico eliminado exitosamente');
+        }
+      } catch (err) {
+        alert(`Error al eliminar diagnóstico: ${err.response?.data?.error || err.message}`);
+      }
+    }
+  };
+
+  // ✅ EDITAR TRATAMIENTO
+  const handleEditTreatment = (treatment) => {
+    setEditingTreatment(treatment);
+    setShowAddTreatment(true);
+  };
+
+  // ✅ ELIMINAR TRATAMIENTO
+  const handleDeleteTreatment = async (treatmentId) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar este medicamento?')) {
+      try {
+        const response = await api.delete(
+          `/medical-visits/${visitId}/treatments/${treatmentId}`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        );
+
+        if (response.data.success) {
+          setVisit(prev => ({
+            ...prev,
+            treatments: prev.treatments.filter(t => t.id !== treatmentId)
+          }));
+          alert('✓ Medicamento eliminado exitosamente');
+        }
+      } catch (err) {
+        alert(`Error al eliminar medicamento: ${err.response?.data?.error || err.message}`);
+      }
+    }
+  };
+
+  // ✅ CERRAR MODALES Y LIMPIAR ESTADO DE EDICIÓN
+  const handleCloseAddDiagnosis = () => {
+    setShowAddDiagnosis(false);
+    setEditingDiagnosis(null);
+  };
+
+  const handleCloseAddTreatment = () => {
+    setShowAddTreatment(false);
+    setEditingTreatment(null);
+  };
+
   const handleNewConsultationChange = (e) => {
     const { name, value } = e.target;
     setNewConsultationData({ ...newConsultationData, [name]: value });
   };
-
-
-
 
   const handleCreateNewConsultation = async (e) => {
     e.preventDefault();
@@ -156,7 +209,6 @@ export default function VisitDetails() {
       });
 
       if (response.data.success) {
-        // ✅ ELIMINADO: setSavedReasonForVisit(newConsultationData.reasonForVisit);
         setConsultationCode(response.data.visit.id);
         setActiveTab('anamnesis');
         navigate(`/visit-details/${patientId}/${response.data.visit.id}`);
@@ -169,9 +221,6 @@ export default function VisitDetails() {
       setNewConsultationLoading(false);
     }
   };
-
-
-
 
   // ✅ FUNCIÓN PARA OBTENER ESTADO DE CADA SECCIÓN
   const getSectionStatus = (section) => {
@@ -240,26 +289,6 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ VALIDAR QUE TODOS LOS CAMPOS ESTÉN COMPLETOS
-  const checkAllFieldsComplete = () => {
-    const requiredFields = {
-      anamnesis: visit.anamnesis?.current_illness?.trim(),
-      vitalSigns: visit.vitalSigns?.weight && visit.vitalSigns?.height && visit.vitalSigns?.systolic_bp,
-      systemReview: visit.systemReview?.head_neck?.trim() || 
-                    visit.systemReview?.respiratory?.trim() || 
-                    visit.systemReview?.cardiovascular?.trim(),
-      physicalExam: visit.physicalExam?.general_appearance?.trim(),
-      treatments: visit.treatments?.length > 0,
-      diagnoses: visit.diagnoses?.length > 0,
-      recommendations: visit.followUp?.follow_up_reason?.trim()
-    };
-
-    return Object.values(requiredFields).every(field => field);
-  };
-
-
-
-
   // ✅ FINALIZAR CONSULTA - CON VALIDACIÓN
   const handleFinalizeConsultation = async () => {
     if (!allSectionsComplete()) {
@@ -280,16 +309,10 @@ export default function VisitDetails() {
     }
   };
 
-
-
-
   const handleEditChange = (e) => {
     const { name, value } = e.target;
     setEditData({ ...editData, [name]: value });
   };
-
-
-
 
   const navigateToNextTab = (currentTabId) => {
     const nextTabId = getNextTabAfterSave(currentTabId);
@@ -299,9 +322,6 @@ export default function VisitDetails() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
-
-
-
 
   const handleSaveAnamnesis = async () => {
     try {
@@ -321,9 +341,6 @@ export default function VisitDetails() {
       alert('Error al guardar: ' + err.response?.data?.error);
     }
   };
-
-
-
 
   // ✅ AQUÍ AGREGAMOS VALIDACIONES
   const handleSaveVitalSigns = async () => {
@@ -366,9 +383,6 @@ export default function VisitDetails() {
     }
   };
 
-
-
-
   const handleSaveSystemReview = async () => {
     try {
       await api.put(
@@ -396,9 +410,6 @@ export default function VisitDetails() {
     }
   };
 
-
-
-
   const handleSavePhysicalExam = async () => {
     try {
       await api.put(
@@ -419,9 +430,6 @@ export default function VisitDetails() {
     }
   };
 
-
-
-
   const handleSaveRecommendations = async () => {
     try {
       await api.put(
@@ -439,9 +447,6 @@ export default function VisitDetails() {
     }
   };
 
-
-
-
   const handleBack = () => {
     if (location.state?.fromSearch) {
       navigate('/search-patient', { replace: true });
@@ -450,15 +455,9 @@ export default function VisitDetails() {
     }
   };
 
-
-
-
   if (loading && visitId) {
     return <div className="page-center"><div className="loading-container">Cargando consulta...</div></div>;
   }
-
-
-
 
   return (
     <div className="page-center">
@@ -466,9 +465,6 @@ export default function VisitDetails() {
         <button className="back-button" onClick={handleBack}>
           ← Atrás
         </button>
-
-
-
 
         <div className="details-header">
           <h2>Detalle de Consulta</h2>
@@ -484,13 +480,7 @@ export default function VisitDetails() {
           </p>
         </div>
 
-
-
-
         {error && <div className="error-message">{error}</div>}
-
-
-
 
         <div className="tabs-container">
           {TAB_SEQUENCE
@@ -881,10 +871,30 @@ export default function VisitDetails() {
                 <div className="items-list">
                   {visit.diagnoses.map((diagnosis) => (
                     <div key={diagnosis.id} className="item-card">
-                      <p><strong>Código CIE10:</strong> {diagnosis.diagnosis_code_cie10}</p>
-                      <p><strong>Descripción:</strong> {diagnosis.diagnosis_description}</p>
-                      <p><strong>Tipo:</strong> {diagnosis.diagnosis_type}</p>
-                      <p><strong>Severidad:</strong> {diagnosis.severity || '-'}</p>
+                      <div className="item-header">
+                        <div>
+                          <p><strong>Código CIE10:</strong> {diagnosis.diagnosis_code_cie10}</p>
+                          <p><strong>Descripción:</strong> {diagnosis.diagnosis_description}</p>
+                          <p><strong>Tipo:</strong> {diagnosis.diagnosis_type}</p>
+                          <p><strong>Severidad:</strong> {diagnosis.severity || '-'}</p>
+                        </div>
+                        <div className="item-actions">
+                          <button
+                            className="btn-edit"
+                            onClick={() => handleEditDiagnosis(diagnosis)}
+                            title="Editar diagnóstico"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            className="btn-delete"
+                            onClick={() => handleDeleteDiagnosis(diagnosis.id)}
+                            title="Eliminar diagnóstico"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -954,13 +964,33 @@ export default function VisitDetails() {
                 <div className="items-list">
                   {visit.treatments.map((treatment) => (
                     <div key={treatment.id} className="item-card">
-                      <p><strong>Medicamento:</strong> {treatment.medication_name}</p>
-                      <p><strong>Dosis:</strong> {treatment.dosage}</p>
-                      <p><strong>Vía:</strong> {treatment.route || '-'}</p>
-                      <p><strong>Frecuencia:</strong> {treatment.frequency}</p>
-                      <p><strong>Duración:</strong> {treatment.duration || '-'}</p>
-                      <p><strong>Cantidad:</strong> {treatment.quantity || '-'}</p>
-                      <p><strong>Instrucciones:</strong> {treatment.instructions || '-'}</p>
+                      <div className="item-header">
+                        <div>
+                          <p><strong>Medicamento:</strong> {treatment.medication_name}</p>
+                          <p><strong>Dosis:</strong> {treatment.dosage}</p>
+                          <p><strong>Vía:</strong> {treatment.route || '-'}</p>
+                          <p><strong>Frecuencia:</strong> {treatment.frequency}</p>
+                          <p><strong>Duración:</strong> {treatment.duration || '-'}</p>
+                          <p><strong>Cantidad:</strong> {treatment.quantity || '-'}</p>
+                          <p><strong>Instrucciones:</strong> {treatment.instructions || '-'}</p>
+                        </div>
+                        <div className="item-actions">
+                          <button
+                            className="btn-edit"
+                            onClick={() => handleEditTreatment(treatment)}
+                            title="Editar medicamento"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            className="btn-delete"
+                            onClick={() => handleDeleteTreatment(treatment.id)}
+                            title="Eliminar medicamento"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -971,7 +1001,7 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ✅ NUEVA PESTAÑA: CHECKLIST */}
+        {/* ✅ CHECKLIST TAB */}
         {activeTab === 'checklist' && visit && (
           <div className="tab-content">
             <div className="section-card">
@@ -1025,23 +1055,25 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* MODALES */}
+        {/* MODALES - ✅ ACTUALIZADO CON PROPS PARA EDICIÓN */}
         {showAddDiagnosis && (
           <AddDiagnosis
             visitId={visitId}
+            editingDiagnosis={editingDiagnosis}
             onDiagnosisAdded={fetchVisitDetails}
-            onClose={() => setShowAddDiagnosis(false)}
+            onClose={handleCloseAddDiagnosis}
           />
         )}
 
         {showAddTreatment && (
           <AddTreatment
             visitId={visitId}
+            editingTreatment={editingTreatment}
             onTreatmentAdded={fetchVisitDetails}
-            onClose={() => setShowAddTreatment(false)}
+            onClose={handleCloseAddTreatment}
           />
         )}
       </div>
     </div>
   );
-}
+  }

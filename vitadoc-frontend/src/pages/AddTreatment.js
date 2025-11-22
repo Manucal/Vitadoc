@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { searchMedicines, getMedicineData } from '../data/medicinesDatabase';
 import '../styles/AddTreatment.css';
 
-export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
+
+export default function AddTreatment({ visitId, editingTreatment, onTreatmentAdded, onClose }) {
   const [formData, setFormData] = useState({
     medicationName: '',
     dosage: '',
@@ -20,6 +21,27 @@ export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
   const [searchResults, setSearchResults] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
+
+  // ✅ NUEVO: Detectar si estamos en modo edición
+  const isEditMode = !!editingTreatment;
+
+  // ✅ NUEVO: Pre-llenar formulario en modo edición
+  useEffect(() => {
+    if (editingTreatment) {
+      setFormData({
+        medicationName: editingTreatment.medicationName || '',
+        dosage: editingTreatment.dosage || '',
+        frequency: editingTreatment.frequency || '',
+        duration: editingTreatment.duration || '',
+        route: editingTreatment.route || 'oral',
+        quantity: editingTreatment.quantity || '',
+        instructions: editingTreatment.instructions || ''
+      });
+      // Intentar obtener datos del medicamento si existen
+      const medicineData = getMedicineData(editingTreatment.medicationName);
+      setSelectedMedicine(medicineData || { name: editingTreatment.medicationName });
+    }
+  }, [editingTreatment]);
 
   // Búsqueda de medicamentos
   const handleMedicineChange = (e) => {
@@ -96,32 +118,50 @@ export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
 
     try {
       setLoading(true);
-      const response = await api.post(
-        `/medical-visits/${visitId}/treatments`,
-        {
-          medicationName: formData.medicationName.trim(),
-          dosage: formData.dosage.trim(),
-          frequency: formData.frequency.trim(),
-          duration: formData.duration.trim() || null,
-          route: formData.route,
-          quantity: formData.quantity.trim() || null,
-          instructions: formData.instructions.trim() || null
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      const payload = {
+        medicationName: formData.medicationName.trim(),
+        dosage: formData.dosage.trim(),
+        frequency: formData.frequency.trim(),
+        duration: formData.duration.trim() || null,
+        route: formData.route,
+        quantity: formData.quantity.trim() || null,
+        instructions: formData.instructions.trim() || null
+      };
+
+      // ✅ NUEVO: Detectar si es POST (crear) o PUT (editar)
+      let response;
+      if (isEditMode) {
+        // EDITAR: PUT request
+        response = await api.put(
+          `/medical-visits/${visitId}/treatments/${editingTreatment.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        );
+        setSuccess('✓ Medicamento actualizado exitosamente');
+      } else {
+        // CREAR: POST request
+        response = await api.post(
+          `/medical-visits/${visitId}/treatments`,
+          payload,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        );
+        setSuccess('✓ Medicamento agregado exitosamente');
+      }
 
       if (response.data.success) {
-        setSuccess('✓ Medicamento agregado exitosamente');
-        setFormData({
-          medicationName: '',
-          dosage: '',
-          frequency: '',
-          duration: '',
-          route: 'oral',
-          quantity: '',
-          instructions: ''
-        });
-        setSelectedMedicine(null);
+        if (!isEditMode) {
+          // Solo resetear si estamos en modo crear
+          setFormData({
+            medicationName: '',
+            dosage: '',
+            frequency: '',
+            duration: '',
+            route: 'oral',
+            quantity: '',
+            instructions: ''
+          });
+          setSelectedMedicine(null);
+        }
 
         if (onTreatmentAdded) {
           onTreatmentAdded();
@@ -133,22 +173,36 @@ export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
         }, 1500);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Error al agregar medicamento');
+      setError(err.response?.data?.error || 'Error al guardar medicamento');
     } finally {
       setLoading(false);
     }
   };
 
   const handleReset = () => {
-    setFormData({
-      medicationName: '',
-      dosage: '',
-      frequency: '',
-      duration: '',
-      route: 'oral',
-      quantity: '',
-      instructions: ''
-    });
+    if (isEditMode) {
+      // En modo edición, resetear a los valores originales
+      setFormData({
+        medicationName: editingTreatment.medicationName || '',
+        dosage: editingTreatment.dosage || '',
+        frequency: editingTreatment.frequency || '',
+        duration: editingTreatment.duration || '',
+        route: editingTreatment.route || 'oral',
+        quantity: editingTreatment.quantity || '',
+        instructions: editingTreatment.instructions || ''
+      });
+    } else {
+      // En modo crear, limpiar completamente
+      setFormData({
+        medicationName: '',
+        dosage: '',
+        frequency: '',
+        duration: '',
+        route: 'oral',
+        quantity: '',
+        instructions: ''
+      });
+    }
     setError('');
     setSuccess('');
     setShowSuggestions(false);
@@ -160,7 +214,7 @@ export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content treatment-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header treatment-header">
-          <h3>💊 Agregar Medicamento</h3>
+          <h3>{isEditMode ? '✏️ Editar Medicamento' : '💊 Agregar Medicamento'}</h3>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
@@ -230,7 +284,7 @@ export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
                   className="input-field"
                   disabled={loading}
                 />
-                {selectedMedicine && selectedMedicine.dosages.length > 0 && (
+                {selectedMedicine && selectedMedicine.dosages && selectedMedicine.dosages.length > 0 && (
                   <div className="dosage-suggestions">
                     <small>Dosis sugeridas:</small>
                     <div className="dosage-buttons">
@@ -342,14 +396,14 @@ export default function AddTreatment({ visitId, onTreatmentAdded, onClose }) {
                 onClick={handleReset}
                 disabled={loading}
               >
-                🔄 Limpiar
+                {isEditMode ? '↺ Descartar cambios' : '🔄 Limpiar'}
               </button>
               <button
                 type="submit"
                 className="btn btn-primary treatment-btn"
                 disabled={loading}
               >
-                {loading ? '⏳ Guardando...' : '✓ Agregar Medicamento'}
+                {loading ? '⏳ Guardando...' : (isEditMode ? '✓ Actualizar Medicamento' : '✓ Agregar Medicamento')}
               </button>
             </div>
           </form>

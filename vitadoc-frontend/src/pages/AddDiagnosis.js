@@ -3,7 +3,8 @@ import api from '../services/api';
 import { searchCIE10, getDescriptionByCode } from '../data/cie10Database';
 import '../styles/AddDiagnosis.css';
 
-export default function AddDiagnosis({ visitId, onDiagnosisAdded, onClose }) {
+
+export default function AddDiagnosis({ visitId, editingDiagnosis, onDiagnosisAdded, onClose }) {
   const [formData, setFormData] = useState({
     diagnosisCodeCie10: '',
     diagnosisDescription: '',
@@ -17,6 +18,25 @@ export default function AddDiagnosis({ visitId, onDiagnosisAdded, onClose }) {
   const [searchResults, setSearchResults] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+
+  // ✅ NUEVO: Detectar si estamos en modo edición
+  const isEditMode = !!editingDiagnosis;
+
+  // ✅ NUEVO: Pre-llenar formulario en modo edición
+  useEffect(() => {
+    if (editingDiagnosis) {
+      setFormData({
+        diagnosisCodeCie10: editingDiagnosis.diagnosisCodeCie10 || '',
+        diagnosisDescription: editingDiagnosis.diagnosisDescription || '',
+        diagnosisType: editingDiagnosis.diagnosisType || 'principal',
+        severity: editingDiagnosis.severity || 'moderada'
+      });
+      setSelectedSuggestion({
+        code: editingDiagnosis.diagnosisCodeCie10,
+        description: editingDiagnosis.diagnosisDescription
+      });
+    }
+  }, [editingDiagnosis]);
 
   // Búsqueda de diagnósticos CIE-10
   const handleCodeChange = (e) => {
@@ -87,26 +107,44 @@ export default function AddDiagnosis({ visitId, onDiagnosisAdded, onClose }) {
 
     try {
       setLoading(true);
-      const response = await api.post(
-        `/medical-visits/${visitId}/diagnoses`,
-        {
-          diagnosisCodeCie10: formData.diagnosisCodeCie10.trim().toUpperCase(),
-          diagnosisDescription: formData.diagnosisDescription.trim(),
-          diagnosisType: formData.diagnosisType,
-          severity: formData.severity
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      const payload = {
+        diagnosisCodeCie10: formData.diagnosisCodeCie10.trim().toUpperCase(),
+        diagnosisDescription: formData.diagnosisDescription.trim(),
+        diagnosisType: formData.diagnosisType,
+        severity: formData.severity
+      };
+
+      // ✅ NUEVO: Detectar si es POST (crear) o PUT (editar)
+      let response;
+      if (isEditMode) {
+        // EDITAR: PUT request
+        response = await api.put(
+          `/medical-visits/${visitId}/diagnoses/${editingDiagnosis.id}`,
+          payload,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        );
+        setSuccess('✓ Diagnóstico actualizado exitosamente');
+      } else {
+        // CREAR: POST request
+        response = await api.post(
+          `/medical-visits/${visitId}/diagnoses`,
+          payload,
+          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        );
+        setSuccess('✓ Diagnóstico agregado exitosamente');
+      }
 
       if (response.data.success) {
-        setSuccess('✓ Diagnóstico agregado exitosamente');
-        setFormData({
-          diagnosisCodeCie10: '',
-          diagnosisDescription: '',
-          diagnosisType: 'principal',
-          severity: 'moderada'
-        });
-        setSelectedSuggestion(null);
+        if (!isEditMode) {
+          // Solo resetear si estamos en modo crear
+          setFormData({
+            diagnosisCodeCie10: '',
+            diagnosisDescription: '',
+            diagnosisType: 'principal',
+            severity: 'moderada'
+          });
+          setSelectedSuggestion(null);
+        }
 
         if (onDiagnosisAdded) {
           onDiagnosisAdded();
@@ -118,19 +156,30 @@ export default function AddDiagnosis({ visitId, onDiagnosisAdded, onClose }) {
         }, 1500);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Error al agregar diagnóstico');
+      setError(err.response?.data?.error || 'Error al guardar diagnóstico');
     } finally {
       setLoading(false);
     }
   };
 
   const handleReset = () => {
-    setFormData({
-      diagnosisCodeCie10: '',
-      diagnosisDescription: '',
-      diagnosisType: 'principal',
-      severity: 'moderada'
-    });
+    if (isEditMode) {
+      // En modo edición, resetear a los valores originales
+      setFormData({
+        diagnosisCodeCie10: editingDiagnosis.diagnosisCodeCie10 || '',
+        diagnosisDescription: editingDiagnosis.diagnosisDescription || '',
+        diagnosisType: editingDiagnosis.diagnosisType || 'principal',
+        severity: editingDiagnosis.severity || 'moderada'
+      });
+    } else {
+      // En modo crear, limpiar completamente
+      setFormData({
+        diagnosisCodeCie10: '',
+        diagnosisDescription: '',
+        diagnosisType: 'principal',
+        severity: 'moderada'
+      });
+    }
     setError('');
     setSuccess('');
     setShowSuggestions(false);
@@ -142,7 +191,7 @@ export default function AddDiagnosis({ visitId, onDiagnosisAdded, onClose }) {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content diagnosis-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h3>🔍 Agregar Diagnóstico</h3>
+          <h3>{isEditMode ? '✏️ Editar Diagnóstico' : '🔍 Agregar Diagnóstico'}</h3>
           <button className="modal-close-btn" onClick={onClose}>✕</button>
         </div>
 
@@ -259,14 +308,14 @@ export default function AddDiagnosis({ visitId, onDiagnosisAdded, onClose }) {
                 onClick={handleReset}
                 disabled={loading}
               >
-                🔄 Limpiar
+                {isEditMode ? '↺ Descartar cambios' : '🔄 Limpiar'}
               </button>
               <button
                 type="submit"
                 className="btn btn-primary"
                 disabled={loading}
               >
-                {loading ? '⏳ Guardando...' : '✓ Agregar Diagnóstico'}
+                {loading ? '⏳ Guardando...' : (isEditMode ? '✓ Actualizar Diagnóstico' : '✓ Agregar Diagnóstico')}
               </button>
             </div>
           </form>
