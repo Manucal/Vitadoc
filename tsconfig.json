@@ -8,7 +8,7 @@
     "strict": false,
     "noImplicitAny": false,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
+    "forceConsistentCasingInFileNames": false,
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
@@ -17,7 +17,7 @@
     "sourceMap": false,
     "removeComments": true,
     "noEmitOnError": false,
-    "types": ["node"]
+    "suppressImplicitAnyIndexErrors": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
