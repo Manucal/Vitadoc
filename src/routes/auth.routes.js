@@ -6,7 +6,7 @@ import { query } from '../config/database.js';
 const router = express.Router();
 
 // ============================================
-// LOGIN CON LOGS DETALLADOS
+// LOGIN
 // ============================================
 router.post('/login', async (req, res) => {
   try {
@@ -16,61 +16,50 @@ router.post('/login', async (req, res) => {
     console.log(`[LOGIN] 1. Intento de login con username: "${username}"`);
 
     if (!username || !password) {
-      console.log(`[LOGIN] ✗ ERROR: Username o password vacío`);
       return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
     }
 
-    console.log(`[LOGIN] 2. Buscando usuario en BD...`);
-    // ✅ MODIFICADO: Agregué full_name y email al SELECT
+    // Buscamos usuario (incluyendo full_name y email para el frontend)
     const result = await query(
-      'SELECT id, tenant_id, password_hash, role, full_name, email FROM users WHERE username = $1',
+      'SELECT id, tenant_id, password_hash, role, full_name, email, must_change_password FROM users WHERE username = $1',
       [username]
     );
 
-    console.log(`[LOGIN] 3. Resultado de búsqueda: ${result.rows.length} usuarios encontrados`);
-
     if (result.rows.length === 0) {
-      console.log(`[LOGIN] ✗ ERROR: Usuario "${username}" NO encontrado en BD`);
+      console.log(`[LOGIN] ✗ ERROR: Usuario no encontrado`);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
     const user = result.rows[0];
-    console.log(`[LOGIN] 4. Usuario encontrado:`);
-    console.log(`[LOGIN]    - ID: ${user.id}`);
-    console.log(`[LOGIN]    - Role: ${user.role}`);
-    console.log(`[LOGIN]    - TenantID: ${user.tenant_id}`);
 
-    console.log(`[LOGIN] 5. Comparando passwords...`);
     const passwordValid = await comparePasswords(password, user.password_hash);
     
     if (!passwordValid) {
-      console.log(`[LOGIN] ✗ ERROR: Password INCORRECTO`);
+      console.log(`[LOGIN] ✗ ERROR: Password incorrecto`);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
-    console.log(`[LOGIN] 7. Generando token...`);
     const token = generateToken(user.id, user.tenant_id);
     const isSuperAdmin = user.role === 'admin' && user.tenant_id === null;
 
-    console.log(`[LOGIN] ✓ LOGIN EXITOSO para usuario: "${username}"`);
-    console.log(`[LOGIN] ✓ Rol enviado: ${user.role}`);
+    console.log(`[LOGIN] ✓ LOGIN EXITOSO: ${username}`);
 
-    // ✅ MODIFICADO: Ahora enviamos todos los datos que el Frontend necesita
     res.json({
       success: true,
       token,
       userId: user.id,
       clientId: user.tenant_id,
       isSuperAdmin,
-      role: user.role, // ¡ESTO FALTABA!
-      user: {          // Enviamos objeto completo para guardar en localStorage
+      role: user.role,
+      user: {
         id: user.id,
         username: username,
         full_name: user.full_name,
         email: user.email,
         role: user.role,
         tenant_id: user.tenant_id,
-        isSuperAdmin
+        isSuperAdmin,
+        must_change_password: user.must_change_password // ✅ IMPORTANTE: Enviamos esto al front
       }
     });
   } catch (error) {
@@ -80,12 +69,61 @@ router.post('/login', async (req, res) => {
 });
 
 // ============================================
+// CAMBIAR CONTRASEÑA (CUALQUIER USUARIO) ✅ NUEVO
+// ============================================
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.userId;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
+
+    // 1. Obtener contraseña actual de la BD
+    const userResult = await query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    
+    const user = userResult.rows[0];
+
+    // 2. Verificar que la contraseña actual sea correcta
+    const isMatch = await comparePasswords(currentPassword, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ error: 'La contraseña actual es incorrecta' });
+    }
+
+    // 3. Hashear la nueva contraseña
+    const newHashedPassword = await hashPassword(newPassword);
+
+    // 4. Actualizar y quitar la bandera 'must_change_password'
+    await query(
+      `UPDATE users 
+       SET password_hash = $1, must_change_password = false 
+       WHERE id = $2`,
+      [newHashedPassword, userId]
+    );
+
+    console.log(`[AUTH] Password cambiado exitosamente para usuario ID: ${userId}`);
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// ============================================
 // VERIFICAR TOKEN
 // ============================================
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const result = await query(
-      'SELECT id, username, email, full_name, role, status, tenant_id FROM users WHERE id = $1',
+      'SELECT id, username, email, full_name, role, status, tenant_id, must_change_password FROM users WHERE id = $1',
       [req.userId]
     );
 
@@ -114,6 +152,7 @@ router.get('/me', authenticateToken, async (req, res) => {
         role: user.role,
         status: user.status,
         tenant_id: user.tenant_id,
+        must_change_password: user.must_change_password, // ✅ Enviamos estado
         tenant: tenant || null
       }
     });
@@ -136,7 +175,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 // ============================================
-// RESET PASSWORD (SUPER-ADMIN)
+// RESET PASSWORD (SUPER-ADMIN ONLY)
 // ============================================
 router.post('/reset-password', authenticateToken, async (req, res) => {
   try {
@@ -154,7 +193,8 @@ router.post('/reset-password', authenticateToken, async (req, res) => {
     }
 
     const hashedPassword = await hashPassword(newPassword);
-    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedPassword, userId]);
+    // Al resetear, obligamos a cambiar de nuevo por seguridad
+    await query('UPDATE users SET password_hash = $1, must_change_password = true WHERE id = $2', [hashedPassword, userId]);
 
     res.json({ success: true, message: 'Contraseña reseteada exitosamente' });
   } catch (error) {
