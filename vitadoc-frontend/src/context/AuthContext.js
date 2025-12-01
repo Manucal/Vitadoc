@@ -1,4 +1,3 @@
-// vitadoc-frontend/src/context/AuthContext.js
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import api from '../services/api';
 
@@ -15,20 +14,30 @@ export function AuthProvider({ children }) {
 
   const verifyToken = async () => {
     const token = localStorage.getItem('authToken');
-    
+    const storedUser = localStorage.getItem('user');
+
     if (!token) {
       setLoading(false);
       return;
     }
 
+    // Si ya tenemos usuario en local, lo cargamos rápido
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
     try {
-      // ✅ CORRECTO: Usar api.js (que ya tiene /api en baseURL)
       const response = await api.get('/auth/me');
-      setUser(response.data.data);
+      // Actualizamos con la info fresca del servidor
+      const userData = response.data.data || response.data.user;
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData)); // Actualizar local
       setError(null);
     } catch (err) {
-      console.error('Token inválido:', err);
+      console.error('Token inválido o expirado:', err);
+      // Si falla, limpiamos todo por seguridad
       localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
       setUser(null);
     } finally {
       setLoading(false);
@@ -37,44 +46,53 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      // ✅ CORRECTO: Usar api.js en lugar de fetch directamente
-      // api.js ya tiene:
-      // - baseURL: https://vitadoc-backend.onrender.com/api
-      // - Interceptores para JWT
-      // - Manejo de CORS
       const response = await api.post('/auth/login', { username, password });
-      
       const data = response.data;
 
+      // 1. Guardar Token
       localStorage.setItem('authToken', data.token);
-      setUser({
-        id: data.userId,
-        tenant_id: data.clientId,
-        isSuperAdmin: data.isSuperAdmin,
-        role: 'admin',
-      });
-      setError(null);
 
+      // 2. Construir objeto de usuario con datos REALES del backend
+      // (Intentamos leer data.user, si no existe construimos uno con lo que haya)
+      const userData = data.user || {
+        id: data.userId,
+        tenant_id: data.clientId, // O data.tenantId según tu backend
+        role: data.role,          // ¡IMPORTANTE! Usar el rol real
+        fullName: data.full_name || username,
+        isSuperAdmin: data.isSuperAdmin
+      };
+
+      // 3. Guardar Usuario en Estado y en LocalStorage (¡El paso que faltaba!)
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setError(null);
       return data;
     } catch (err) {
-      setError(err.message);
+      const msg = err.response?.data?.error || err.message || 'Error al iniciar sesión';
+      setError(msg);
       throw err;
     }
   };
 
   const logout = async () => {
     try {
-      // ✅ CORRECTO: Usar api.js
-      await api.post('/auth/logout');
+      // Intentar avisar al backend (opcional)
+      await api.post('/auth/logout'); 
     } catch (err) {
-      console.error('Error al logout:', err);
+      console.error('Logout local:', err);
     } finally {
+      // Limpiar todo
       localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('doctorType');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('clientId');
       setUser(null);
     }
   };
 
-  const isSuperAdmin = user?.isSuperAdmin === true || (user?.role === 'admin' && user?.tenant_id === null);
+  const isSuperAdmin = user?.isSuperAdmin === true || (user?.role === 'admin' && !user?.tenant_id);
 
   return (
     <AuthContext.Provider value={{ user, loading, error, login, logout, isSuperAdmin }}>
