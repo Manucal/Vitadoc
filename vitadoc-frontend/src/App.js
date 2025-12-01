@@ -14,6 +14,7 @@ import PatientDetails from './pages/PatientDetails';
 import PatientVisits from './pages/PatientVisits';
 import VisitDetails from './pages/VisitDetails';
 import VisitSummaryPage from './pages/VisitSummary';
+import ClinicUsers from './pages/ClinicUsers';
 import './App.css';
 import './styles/theme.css';
 
@@ -53,6 +54,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/tenant-users" element={<ProtectedRoute><ClinicUsers /></ProtectedRoute>} />
           <Route
             path="/search-patient"
             element={
