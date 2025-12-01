@@ -1,6 +1,5 @@
 // 🏥 Base de datos CIE-10 EXPANDIDA - 250+ Diagnósticos comunes en Colombia
-// Actualizado: 07-11-2025 15:30 PM
-// Cubre: Infecciones, Cardiovascular, Respiratorio, Digestivo, Mental, Traumatismo y más
+// Actualizado: 22-11-2025 - Blindado contra errores de edición
 
 export const CIE10_DATABASE = [
   // INFECCIONES BACTERIANAS Y VIRALES
@@ -32,8 +31,7 @@ export const CIE10_DATABASE = [
   { code: 'B10', description: 'Otras enfermedades virales especificadas' },
   { code: 'B34', description: 'Infección viral sin especificar' },
   { code: 'B99', description: 'Enfermedad infecciosa sin especificar' },
-
-  // PARASITARIAS (MUY COMUNES EN COLOMBIA)
+  // PARASITARIAS
   { code: 'B65', description: 'Esquistosomiasis' },
   { code: 'B66', description: 'Otras infecciones por trematodos' },
   { code: 'B67', description: 'Equinococosis' },
@@ -58,7 +56,6 @@ export const CIE10_DATABASE = [
   { code: 'B88', description: 'Otras infestaciones' },
   { code: 'B89', description: 'Parasitosis sin especificar' },
   { code: 'B90', description: 'Secuelas de tuberculosis' },
-
   // ENFERMEDADES DEL SISTEMA CIRCULATORIO
   { code: 'I10', description: 'Hipertensión esencial (primaria)' },
   { code: 'I11', description: 'Enfermedad renal hipertensiva' },
@@ -109,7 +106,6 @@ export const CIE10_DATABASE = [
   { code: 'I87', description: 'Trastornos venosos posteriores' },
   { code: 'I88', description: 'Linfangitis' },
   { code: 'I89', description: 'Otras enfermedades no infecciosas del sistema linfático' },
-
   // ENFERMEDADES DEL SISTEMA RESPIRATORIO
   { code: 'J00', description: 'Rinofaringitis aguda (resfriado común)' },
   { code: 'J01', description: 'Sinusitis aguda' },
@@ -175,7 +171,6 @@ export const CIE10_DATABASE = [
   { code: 'J96', description: 'Insuficiencia respiratoria' },
   { code: 'J98', description: 'Otros trastornos de las vías respiratorias' },
   { code: 'J99', description: 'Enfermedades respiratorias en otras enfermedades' },
-
   // ENFERMEDADES ENDOCRINAS
   { code: 'E00', description: 'Síndrome de deficiencia de yodo' },
   { code: 'E01', description: 'Hipotiroidismo por deficiencia de yodo' },
@@ -213,7 +208,6 @@ export const CIE10_DATABASE = [
   { code: 'E44', description: 'Desnutrición proteico-calórica de grado moderado' },
   { code: 'E45', description: 'Retraso del desarrollo debido a desnutrición' },
   { code: 'E46', description: 'Desnutrición sin especificar' },
-
   // TRASTORNOS MENTALES Y DEL COMPORTAMIENTO
   { code: 'F10', description: 'Trastornos por uso de alcohol' },
   { code: 'F11', description: 'Trastornos por uso de opioides' },
@@ -252,7 +246,6 @@ export const CIE10_DATABASE = [
   { code: 'F52', description: 'Disfunción sexual' },
   { code: 'F53', description: 'Trastorno mental posparto no especificado' },
   { code: 'F54', description: 'Factores psicológicos asociados a enfermedades' },
-
   // ENFERMEDADES DEL SISTEMA DIGESTIVO
   { code: 'K00', description: 'Trastornos del desarrollo de dientes' },
   { code: 'K01', description: 'Dientes incluidos' },
@@ -327,8 +320,7 @@ export const CIE10_DATABASE = [
   { code: 'K90', description: 'Malabsorción' },
   { code: 'K91', description: 'Complicaciones de cirugía digestiva' },
   { code: 'K92', description: 'Otras enfermedades del sistema digestivo' },
-
-  // DOLOR Y SÍNTOMAS GENERALES (MUY COMUNES EN CONSULTA)
+  // DOLOR Y SÍNTOMAS GENERALES
   { code: 'R00', description: 'Anomalías del ritmo cardíaco' },
   { code: 'R01', description: 'Hallazgos anormales en examen cardiovascular' },
   { code: 'R02', description: 'Gangrena' },
@@ -390,7 +382,6 @@ export const CIE10_DATABASE = [
   { code: 'R64', description: 'Caquexia' },
   { code: 'R65', description: 'Síndrome de respuesta inflamatoria sistémica' },
   { code: 'R69', description: 'Enfermedad desconocida o no especificada' },
-
   // ENFERMEDADES DEL SISTEMA GENITOURINARIO
   { code: 'N00', description: 'Glomerulonefritis aguda' },
   { code: 'N01', description: 'Síndrome nefrítico rápidamente progresivo' },
@@ -435,7 +426,6 @@ export const CIE10_DATABASE = [
   { code: 'N47', description: 'Fimosis y parafimosis' },
   { code: 'N48', description: 'Inflamación del pene' },
   { code: 'N50', description: 'Otros trastornos órganos genitales masculinos' },
-
   // TRAUMATISMO (LESIONES)
   { code: 'S00', description: 'Traumatismo de cabeza' },
   { code: 'S10', description: 'Traumatismo de cuello' },
@@ -447,14 +437,12 @@ export const CIE10_DATABASE = [
   { code: 'S70', description: 'Traumatismo de cadera y muslo' },
   { code: 'S80', description: 'Traumatismo de rodilla' },
   { code: 'S90', description: 'Traumatismo de tobillo y pie' },
-
   // QUEMADURAS
   { code: 'T20', description: 'Quemaduras de cabeza y cuello' },
   { code: 'T21', description: 'Quemaduras de tronco' },
   { code: 'T22', description: 'Quemaduras de miembro superior' },
   { code: 'T23', description: 'Quemaduras de muñeca y mano' },
   { code: 'T24', description: 'Quemaduras de miembro inferior' },
-
   // ENVENENAMIENTO
   { code: 'T36', description: 'Envenenamiento por antibióticos sistémicos' },
   { code: 'T39', description: 'Envenenamiento por antiinflamatorios' },
@@ -465,26 +453,30 @@ export const CIE10_DATABASE = [
   { code: 'T50', description: 'Envenenamiento por otros fármacos' },
 ];
 
-// Función para buscar diagnósticos por código o descripción
+// ✅ FUNCIÓN CORREGIDA: Búsqueda segura
 export const searchCIE10 = (query) => {
-  if (!query || query.trim().length === 0) return [];
+  if (!query || typeof query !== 'string' || query.trim().length === 0) return [];
   
   const searchTerm = query.toLowerCase().trim();
   
   return CIE10_DATABASE.filter(item => 
     item.code.toLowerCase().includes(searchTerm) || 
     item.description.toLowerCase().includes(searchTerm)
-  ).slice(0, 15); // Aumentado a 15 resultados
+  ).slice(0, 15);
 };
 
-// Función para obtener descripción por código
+// ✅ FUNCIÓN CORREGIDA: Obtención segura por código
 export const getDescriptionByCode = (code) => {
+  if (!code || typeof code !== 'string') return null;
+
   const item = CIE10_DATABASE.find(d => d.code === code);
   return item ? item.description : null;
 };
 
-// Función para obtener código por descripción
+// ✅ FUNCIÓN CORREGIDA: Obtención segura por descripción
 export const getCodeByDescription = (description) => {
+  if (!description || typeof description !== 'string') return null;
+
   const item = CIE10_DATABASE.find(d => 
     d.description.toLowerCase() === description.toLowerCase()
   );
