@@ -2,9 +2,7 @@ import express from 'express';
 import { authenticateToken } from '../middleware/auth.js';
 import { query } from '../config/database.js';
 
-
 const router = express.Router();
-
 
 // ============================================
 // CREATE - CREAR NUEVA CONSULTA MÉDICA
@@ -13,25 +11,19 @@ router.post('/', authenticateToken, async (req, res) => {
   try {
     const { patientId, reasonForVisit } = req.body;
 
-
     if (!patientId || !reasonForVisit) {
       return res.status(400).json({ error: 'patientId y reasonForVisit son requeridos' });
     }
 
-
-    // Verificar que el paciente existe y pertenece al tenant
     const patientResult = await query(
       'SELECT id FROM patients WHERE id = $1 AND tenant_id = $2',
       [patientId, req.clientId]
     );
 
-
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Paciente no encontrado' });
     }
 
-
-    // Crear consulta médica
     const visitResult = await query(
       `INSERT INTO medical_visits (
         tenant_id, patient_id, doctor_id, reason_for_visit, status, created_by
@@ -40,11 +32,8 @@ router.post('/', authenticateToken, async (req, res) => {
       [req.clientId, patientId, req.userId, reasonForVisit, 'draft', req.userId]
     );
 
-
     const visitId = visitResult.rows[0].id;
 
-
-    // Crear registros vacíos para las secciones de la historia
     await query('INSERT INTO anamnesis (visit_id) VALUES ($1)', [visitId]);
     await query('INSERT INTO personal_history (visit_id) VALUES ($1)', [visitId]);
     await query('INSERT INTO family_history (visit_id) VALUES ($1)', [visitId]);
@@ -52,7 +41,6 @@ router.post('/', authenticateToken, async (req, res) => {
     await query('INSERT INTO system_review (visit_id) VALUES ($1)', [visitId]);
     await query('INSERT INTO physical_exam (visit_id) VALUES ($1)', [visitId]);
     await query('INSERT INTO follow_up (visit_id) VALUES ($1)', [visitId]);
-
 
     res.status(201).json({
       success: true,
@@ -71,7 +59,6 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-
 // ============================================
 // READ - OBTENER TODAS LAS CONSULTAS DEL PACIENTE
 // ============================================
@@ -79,20 +66,15 @@ router.get('/patient/:patientId', authenticateToken, async (req, res) => {
   try {
     const { patientId } = req.params;
 
-
-    // Verificar que el paciente existe y pertenece al tenant
     const patientResult = await query(
       'SELECT id FROM patients WHERE id = $1 AND tenant_id = $2',
       [patientId, req.clientId]
     );
 
-
     if (patientResult.rows.length === 0) {
       return res.status(404).json({ error: 'Paciente no encontrado' });
     }
 
-
-    // Obtener consultas
     const result = await query(
       `SELECT id, visit_date, reason_for_visit, status, created_date 
        FROM medical_visits 
@@ -100,7 +82,6 @@ router.get('/patient/:patientId', authenticateToken, async (req, res) => {
        ORDER BY visit_date DESC`,
       [patientId, req.clientId]
     );
-
 
     res.json({
       success: true,
@@ -113,7 +94,6 @@ router.get('/patient/:patientId', authenticateToken, async (req, res) => {
   }
 });
 
-
 // ============================================
 // READ - OBTENER DETALLE COMPLETO DE UNA CONSULTA
 // ============================================
@@ -121,8 +101,6 @@ router.get('/:visitId/details', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
 
-
-    // Obtener datos principales de la consulta
     const visitResult = await query(
       `SELECT mv.id, mv.visit_date, mv.reason_for_visit, mv.status,
               p.id as patient_id, 
@@ -145,74 +123,22 @@ router.get('/:visitId/details', authenticateToken, async (req, res) => {
       [visitId, req.clientId]
     );
 
-
     if (visitResult.rows.length === 0) {
       return res.status(404).json({ error: 'Consulta no encontrada' });
     }
 
-
     const visit = visitResult.rows[0];
 
+    const anamnesisResult = await query('SELECT * FROM anamnesis WHERE visit_id = $1', [visitId]);
+    const personalHistoryResult = await query('SELECT * FROM personal_history WHERE visit_id = $1', [visitId]);
+    const familyHistoryResult = await query('SELECT * FROM family_history WHERE visit_id = $1', [visitId]);
+    const vitalSignsResult = await query('SELECT * FROM vital_signs WHERE visit_id = $1', [visitId]);
+    const systemReviewResult = await query('SELECT * FROM system_review WHERE visit_id = $1', [visitId]);
+    const physicalExamResult = await query('SELECT * FROM physical_exam WHERE visit_id = $1', [visitId]);
+    const followUpResult = await query('SELECT * FROM follow_up WHERE visit_id = $1', [visitId]);
+    const diagnosesResult = await query('SELECT * FROM diagnoses WHERE visit_id = $1 ORDER BY created_date', [visitId]);
+    const treatmentsResult = await query('SELECT * FROM treatments WHERE visit_id = $1 ORDER BY prescribed_date', [visitId]);
 
-    // Obtener todos los datos
-    const anamnesisResult = await query(
-      'SELECT * FROM anamnesis WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    const personalHistoryResult = await query(
-      'SELECT * FROM personal_history WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    const familyHistoryResult = await query(
-      'SELECT * FROM family_history WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    const vitalSignsResult = await query(
-      'SELECT * FROM vital_signs WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    // Revisión por sistemas
-    const systemReviewResult = await query(
-      'SELECT * FROM system_review WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    // Examen físico
-    const physicalExamResult = await query(
-      'SELECT * FROM physical_exam WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    // Seguimiento
-    const followUpResult = await query(
-      'SELECT * FROM follow_up WHERE visit_id = $1',
-      [visitId]
-    );
-
-
-    const diagnosesResult = await query(
-      'SELECT * FROM diagnoses WHERE visit_id = $1 ORDER BY created_date',
-      [visitId]
-    );
-
-
-    const treatmentsResult = await query(
-      'SELECT * FROM treatments WHERE visit_id = $1 ORDER BY prescribed_date',
-      [visitId]
-    );
-
-
-    // Respuesta completa
     res.json({
       success: true,
       visit: {
@@ -234,9 +160,7 @@ router.get('/:visitId/details', authenticateToken, async (req, res) => {
           city: visit.city,
           department: visit.department
         },
-        doctor: {
-          name: visit.doctor_name
-        },
+        doctor: { name: visit.doctor_name },
         anamnesis: anamnesisResult.rows[0] || null,
         personalHistory: personalHistoryResult.rows[0] || null,
         familyHistory: familyHistoryResult.rows[0] || null,
@@ -254,29 +178,17 @@ router.get('/:visitId/details', authenticateToken, async (req, res) => {
   }
 });
 
-
 // ============================================
-// UPDATE - ACTUALIZAR ANAMNESIS
+// UPDATE - ACTUALIZAR SECCIONES
 // ============================================
 router.put('/:visitId/anamnesis', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
     const { currentIllness, symptomDuration, symptomSeverity, associatedSymptoms, relevantHistory } = req.body;
 
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
 
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    // Actualizar anamnesis
     await query(
       `UPDATE anamnesis 
        SET current_illness = COALESCE($1, current_illness),
@@ -288,48 +200,26 @@ router.put('/:visitId/anamnesis', authenticateToken, async (req, res) => {
       [currentIllness, symptomDuration, symptomSeverity, associatedSymptoms, relevantHistory, visitId]
     );
 
-
-    res.json({
-      success: true,
-      message: 'Anamnesis actualizada exitosamente'
-    });
+    res.json({ success: true, message: 'Anamnesis actualizada exitosamente' });
   } catch (error) {
-    console.error('Error al actualizar anamnesis:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
-// ============================================
-// UPDATE - ACTUALIZAR SIGNOS VITALES
-// ============================================
 router.put('/:visitId/vital-signs', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
     const { weight, height, systolicBp, diastolicBp, heartRate, respiratoryRate, bodyTemperature } = req.body;
 
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
 
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    // Calcular IMC si hay peso y altura
     let imc = null;
     if (weight && height) {
       const heightInMeters = height / 100;
       imc = weight / (heightInMeters * heightInMeters);
     }
 
-
-    // Actualizar signos vitales
     await query(
       `UPDATE vital_signs 
        SET weight = COALESCE($1, weight),
@@ -345,392 +235,19 @@ router.put('/:visitId/vital-signs', authenticateToken, async (req, res) => {
       [weight, height, systolicBp, diastolicBp, heartRate, respiratoryRate, bodyTemperature, imc, visitId]
     );
 
-
-    res.json({
-      success: true,
-      message: 'Signos vitales actualizados exitosamente',
-      imc: imc ? imc.toFixed(2) : null
-    });
+    res.json({ success: true, message: 'Signos vitales actualizados exitosamente', imc: imc ? imc.toFixed(2) : null });
   } catch (error) {
-    console.error('Error al actualizar signos vitales:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
-// ============================================
-// CREATE - AGREGAR DIAGNÓSTICO
-// ============================================
-router.post('/:visitId/diagnoses', authenticateToken, async (req, res) => {
-  try {
-    const { visitId } = req.params;
-    const { diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity } = req.body;
-
-
-    if (!diagnosisCodeCie10 || !diagnosisDescription) {
-      return res.status(400).json({ error: 'diagnosisCodeCie10 y diagnosisDescription son requeridos' });
-    }
-
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    // Crear diagnóstico
-    const result = await query(
-      `INSERT INTO diagnoses (visit_id, diagnosis_code_cie10, diagnosis_description, diagnosis_type, severity)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, diagnosis_code_cie10, diagnosis_description`,
-      [visitId, diagnosisCodeCie10, diagnosisDescription, diagnosisType || 'principal', severity]
-    );
-
-
-    res.status(201).json({
-      success: true,
-      message: 'Diagnóstico agregado exitosamente',
-      diagnosis: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error al agregar diagnóstico:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// UPDATE - EDITAR DIAGNÓSTICO ✅ NUEVO
-// ============================================
-router.put('/:visitId/diagnoses/:diagnosisId', authenticateToken, async (req, res) => {
-  try {
-    const { visitId, diagnosisId } = req.params;
-    const { diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity } = req.body;
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-    // Verificar que el diagnóstico existe y pertenece a la consulta
-    const diagnosisResult = await query(
-      'SELECT id FROM diagnoses WHERE id = $1 AND visit_id = $2',
-      [diagnosisId, visitId]
-    );
-
-    if (diagnosisResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Diagnóstico no encontrado' });
-    }
-
-    // Actualizar diagnóstico
-    const updateResult = await query(
-      `UPDATE diagnoses 
-       SET diagnosis_code_cie10 = COALESCE($1, diagnosis_code_cie10),
-           diagnosis_description = COALESCE($2, diagnosis_description),
-           diagnosis_type = COALESCE($3, diagnosis_type),
-           severity = COALESCE($4, severity)
-       WHERE id = $5
-       RETURNING id, diagnosis_code_cie10, diagnosis_description, diagnosis_type, severity`,
-      [diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity, diagnosisId]
-    );
-
-    res.json({
-      success: true,
-      message: 'Diagnóstico actualizado exitosamente',
-      diagnosis: updateResult.rows[0]
-    });
-  } catch (error) {
-    console.error('Error al actualizar diagnóstico:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// DELETE - ELIMINAR DIAGNÓSTICO ✅ NUEVO
-// ============================================
-router.delete('/:visitId/diagnoses/:diagnosisId', authenticateToken, async (req, res) => {
-  try {
-    const { visitId, diagnosisId } = req.params;
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-    // Verificar que el diagnóstico existe y pertenece a la consulta
-    const diagnosisResult = await query(
-      'SELECT id FROM diagnoses WHERE id = $1 AND visit_id = $2',
-      [diagnosisId, visitId]
-    );
-
-    if (diagnosisResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Diagnóstico no encontrado' });
-    }
-
-    // Eliminar diagnóstico
-    await query(
-      'DELETE FROM diagnoses WHERE id = $1',
-      [diagnosisId]
-    );
-
-    res.json({
-      success: true,
-      message: 'Diagnóstico eliminado exitosamente'
-    });
-  } catch (error) {
-    console.error('Error al eliminar diagnóstico:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// CREATE - AGREGAR MEDICAMENTO/TRATAMIENTO
-// ============================================
-router.post('/:visitId/treatments', authenticateToken, async (req, res) => {
-  try {
-    const { visitId } = req.params;
-    const { medicationName, dosage, frequency, duration, route, quantity, instructions } = req.body;
-
-
-    if (!medicationName || !dosage || !frequency) {
-      return res.status(400).json({ error: 'medicationName, dosage y frequency son requeridos' });
-    }
-
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    // Crear tratamiento
-    const result = await query(
-      `INSERT INTO treatments (visit_id, medication_name, dosage, frequency, duration, route, quantity, instructions)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, medication_name, dosage, frequency, route, quantity`,
-      [
-        visitId, 
-        medicationName.trim(), 
-        dosage.trim(), 
-        frequency.trim(), 
-        duration ? duration.trim() : null, 
-        route || 'oral', 
-        quantity ? quantity.trim() : null,
-        instructions ? instructions.trim() : null
-      ]
-    );
-
-
-    res.status(201).json({
-      success: true,
-      message: 'Medicamento agregado exitosamente',
-      treatment: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Error al agregar medicamento:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// UPDATE - EDITAR MEDICAMENTO/TRATAMIENTO ✅ NUEVO
-// ============================================
-router.put('/:visitId/treatments/:treatmentId', authenticateToken, async (req, res) => {
-  try {
-    const { visitId, treatmentId } = req.params;
-    const { medicationName, dosage, frequency, duration, route, quantity, instructions } = req.body;
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-    // Verificar que el medicamento existe y pertenece a la consulta
-    const treatmentResult = await query(
-      'SELECT id FROM treatments WHERE id = $1 AND visit_id = $2',
-      [treatmentId, visitId]
-    );
-
-    if (treatmentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Medicamento no encontrado' });
-    }
-
-    // Actualizar medicamento
-    const updateResult = await query(
-      `UPDATE treatments 
-       SET medication_name = COALESCE($1, medication_name),
-           dosage = COALESCE($2, dosage),
-           frequency = COALESCE($3, frequency),
-           duration = COALESCE($4, duration),
-           route = COALESCE($5, route),
-           quantity = COALESCE($6, quantity),
-           instructions = COALESCE($7, instructions)
-       WHERE id = $8
-       RETURNING id, medication_name, dosage, frequency, duration, route, quantity, instructions`,
-      [
-        medicationName ? medicationName.trim() : null,
-        dosage ? dosage.trim() : null,
-        frequency ? frequency.trim() : null,
-        duration ? duration.trim() : null,
-        route || null,
-        quantity ? quantity.trim() : null,
-        instructions ? instructions.trim() : null,
-        treatmentId
-      ]
-    );
-
-    res.json({
-      success: true,
-      message: 'Medicamento actualizado exitosamente',
-      treatment: updateResult.rows[0]
-    });
-  } catch (error) {
-    console.error('Error al actualizar medicamento:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// DELETE - ELIMINAR MEDICAMENTO/TRATAMIENTO ✅ NUEVO
-// ============================================
-router.delete('/:visitId/treatments/:treatmentId', authenticateToken, async (req, res) => {
-  try {
-    const { visitId, treatmentId } = req.params;
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-    // Verificar que el medicamento existe y pertenece a la consulta
-    const treatmentResult = await query(
-      'SELECT id FROM treatments WHERE id = $1 AND visit_id = $2',
-      [treatmentId, visitId]
-    );
-
-    if (treatmentResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Medicamento no encontrado' });
-    }
-
-    // Eliminar medicamento
-    await query(
-      'DELETE FROM treatments WHERE id = $1',
-      [treatmentId]
-    );
-
-    res.json({
-      success: true,
-      message: 'Medicamento eliminado exitosamente'
-    });
-  } catch (error) {
-    console.error('Error al eliminar medicamento:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// UPDATE - CAMBIAR ESTADO DE CONSULTA
-// ============================================
-router.put('/:visitId/status', authenticateToken, async (req, res) => {
-  try {
-    const { visitId } = req.params;
-    const { status } = req.body;
-
-
-    const validStatuses = ['draft', 'completed', 'signed', 'archived'];
-    if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({ error: `Status debe ser uno de: ${validStatuses.join(', ')}` });
-    }
-
-
-    // Verificar que la consulta existe
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    // Actualizar estado
-    await query(
-      `UPDATE medical_visits 
-       SET status = $1, last_modified_date = NOW(), last_modified_by = $2
-       WHERE id = $3`,
-      [status, req.userId, visitId]
-    );
-
-
-    res.json({
-      success: true,
-      message: `Consulta actualizada a estado: ${status}`
-    });
-  } catch (error) {
-    console.error('Error al cambiar estado:', error);
-    res.status(500).json({ error: 'Error en el servidor' });
-  }
-});
-
-
-// ============================================
-// UPDATE - ACTUALIZAR REVISIÓN POR SISTEMAS
-// ============================================
 router.put('/:visitId/system-review', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
     const { headNeck, ocular, ears, thoraxAbdomen, respiratory, cardiovascular, digestive, genitourinary, musculoskeletal, skin, nervousSystem } = req.body;
 
-
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
 
     await query(
       `UPDATE system_review 
@@ -749,37 +266,19 @@ router.put('/:visitId/system-review', authenticateToken, async (req, res) => {
       [headNeck, ocular, ears, thoraxAbdomen, respiratory, cardiovascular, digestive, genitourinary, musculoskeletal, skin, nervousSystem, visitId]
     );
 
-
-    res.json({
-      success: true,
-      message: 'Revisión por sistemas actualizada exitosamente'
-    });
+    res.json({ success: true, message: 'Revisión por sistemas actualizada exitosamente' });
   } catch (error) {
-    console.error('Error al actualizar revisión por sistemas:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
-// ============================================
-// UPDATE - ACTUALIZAR EXAMEN FÍSICO
-// ============================================
 router.put('/:visitId/physical-exam', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
     const { generalAppearance, mentalStatus, detailedFindings, abnormalities } = req.body;
 
-
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
 
     await query(
       `UPDATE physical_exam 
@@ -792,86 +291,236 @@ router.put('/:visitId/physical-exam', authenticateToken, async (req, res) => {
       [generalAppearance, mentalStatus, detailedFindings, abnormalities, visitId]
     );
 
-
-    res.json({
-      success: true,
-      message: 'Examen físico actualizado exitosamente'
-    });
+    res.json({ success: true, message: 'Examen físico actualizado exitosamente' });
   } catch (error) {
-    console.error('Error al actualizar examen físico:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
-// ============================================
-// UPDATE - ACTUALIZAR SEGUIMIENTO/RECOMENDACIONES
-// ============================================
 router.put('/:visitId/follow-up', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
     const { followUpReason } = req.body;
 
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
 
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
+    await query(`UPDATE follow_up SET follow_up_reason = COALESCE($1, follow_up_reason) WHERE visit_id = $2`, [followUpReason, visitId]);
 
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    await query(
-      `UPDATE follow_up 
-       SET follow_up_reason = COALESCE($1, follow_up_reason)
-       WHERE visit_id = $2`,
-      [followUpReason, visitId]
-    );
-
-
-    res.json({
-      success: true,
-      message: 'Recomendaciones actualizadas exitosamente'
-    });
+    res.json({ success: true, message: 'Recomendaciones actualizadas exitosamente' });
   } catch (error) {
-    console.error('Error al actualizar recomendaciones:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
+router.put('/:visitId/status', authenticateToken, async (req, res) => {
+  try {
+    const { visitId } = req.params;
+    const { status } = req.body;
+    const validStatuses = ['draft', 'completed', 'signed', 'archived'];
+    if (!status || !validStatuses.includes(status)) return res.status(400).json({ error: 'Status inválido' });
+
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    await query(`UPDATE medical_visits SET status = $1, last_modified_date = NOW(), last_modified_by = $2 WHERE id = $3`, [status, req.userId, visitId]);
+
+    res.json({ success: true, message: `Consulta actualizada a estado: ${status}` });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
 
 // ============================================
-// DELETE - ELIMINAR CONSULTA MÉDICA
+// DIAGNÓSTICOS (CRUD)
+// ============================================
+router.post('/:visitId/diagnoses', authenticateToken, async (req, res) => {
+  try {
+    const { visitId } = req.params;
+    const { diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity } = req.body;
+
+    if (!diagnosisCodeCie10 || !diagnosisDescription) return res.status(400).json({ error: 'Faltan datos' });
+
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    const result = await query(
+      `INSERT INTO diagnoses (visit_id, diagnosis_code_cie10, diagnosis_description, diagnosis_type, severity)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, diagnosis_code_cie10, diagnosis_description`,
+      [visitId, diagnosisCodeCie10, diagnosisDescription, diagnosisType || 'principal', severity]
+    );
+
+    res.status(201).json({ success: true, message: 'Diagnóstico agregado', diagnosis: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+router.put('/:visitId/diagnoses/:diagnosisId', authenticateToken, async (req, res) => {
+  try {
+    const { visitId, diagnosisId } = req.params;
+    const { diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity } = req.body;
+
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    const result = await query(
+      `UPDATE diagnoses SET diagnosis_code_cie10 = COALESCE($1, diagnosis_code_cie10),
+           diagnosis_description = COALESCE($2, diagnosis_description),
+           diagnosis_type = COALESCE($3, diagnosis_type),
+           severity = COALESCE($4, severity)
+       WHERE id = $5 RETURNING id`,
+      [diagnosisCodeCie10, diagnosisDescription, diagnosisType, severity, diagnosisId]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Diagnóstico no encontrado' });
+    res.json({ success: true, message: 'Diagnóstico actualizado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+router.delete('/:visitId/diagnoses/:diagnosisId', authenticateToken, async (req, res) => {
+  try {
+    const { visitId, diagnosisId } = req.params;
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    await query('DELETE FROM diagnoses WHERE id = $1', [diagnosisId]);
+    res.json({ success: true, message: 'Diagnóstico eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+// ============================================
+// MEDICAMENTOS (CRUD)
+// ============================================
+router.post('/:visitId/treatments', authenticateToken, async (req, res) => {
+  try {
+    const { visitId } = req.params;
+    const { medicationName, dosage, frequency, duration, route, quantity, instructions } = req.body;
+
+    if (!medicationName || !dosage || !frequency) return res.status(400).json({ error: 'Faltan datos' });
+
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    const result = await query(
+      `INSERT INTO treatments (visit_id, medication_name, dosage, frequency, duration, route, quantity, instructions)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [visitId, medicationName.trim(), dosage.trim(), frequency.trim(), duration, route || 'oral', quantity, instructions]
+    );
+
+    res.status(201).json({ success: true, message: 'Medicamento agregado', treatment: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+router.put('/:visitId/treatments/:treatmentId', authenticateToken, async (req, res) => {
+  try {
+    const { visitId, treatmentId } = req.params;
+    const { medicationName, dosage, frequency, duration, route, quantity, instructions } = req.body;
+
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    const result = await query(
+      `UPDATE treatments SET medication_name = COALESCE($1, medication_name),
+           dosage = COALESCE($2, dosage),
+           frequency = COALESCE($3, frequency),
+           duration = COALESCE($4, duration),
+           route = COALESCE($5, route),
+           quantity = COALESCE($6, quantity),
+           instructions = COALESCE($7, instructions)
+       WHERE id = $8 RETURNING id`,
+      [medicationName, dosage, frequency, duration, route, quantity, instructions, treatmentId]
+    );
+
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Medicamento no encontrado' });
+    res.json({ success: true, message: 'Medicamento actualizado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+router.delete('/:visitId/treatments/:treatmentId', authenticateToken, async (req, res) => {
+  try {
+    const { visitId, treatmentId } = req.params;
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+
+    await query('DELETE FROM treatments WHERE id = $1', [treatmentId]);
+    res.json({ success: true, message: 'Medicamento eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error en el servidor' });
+  }
+});
+
+// ============================================
+// 🚀 NUEVO: COPIAR ÚLTIMA RECETA
+// ============================================
+router.post('/:visitId/copy-last-prescription', authenticateToken, async (req, res) => {
+  try {
+    const { visitId } = req.params;
+
+    // 1. Obtener info de la consulta actual para saber quién es el paciente
+    const currentVisit = await query(
+      'SELECT patient_id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
+      [visitId, req.clientId]
+    );
+
+    if (currentVisit.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
+    const patientId = currentVisit.rows[0].patient_id;
+
+    // 2. Buscar la última consulta DIFERENTE a esta que tenga medicamentos
+    const lastVisit = await query(
+      `SELECT id FROM medical_visits 
+       WHERE patient_id = $1 AND id != $2 
+       AND id IN (SELECT visit_id FROM treatments)
+       ORDER BY visit_date DESC LIMIT 1`,
+      [patientId, visitId]
+    );
+
+    if (lastVisit.rows.length === 0) {
+      return res.status(404).json({ error: 'No se encontraron recetas anteriores para este paciente' });
+    }
+
+    const lastVisitId = lastVisit.rows[0].id;
+
+    // 3. Copiar medicamentos de la última visita a la actual
+    const copyResult = await query(
+      `INSERT INTO treatments (visit_id, medication_name, dosage, frequency, duration, route, quantity, instructions, prescribed_date)
+       SELECT $1, medication_name, dosage, frequency, duration, route, quantity, instructions, NOW()
+       FROM treatments WHERE visit_id = $2
+       RETURNING id`,
+      [visitId, lastVisitId]
+    );
+
+    res.json({ 
+      success: true, 
+      message: `Se copiaron ${copyResult.rowCount} medicamentos exitosamente`
+    });
+
+  } catch (error) {
+    console.error('Error copiando receta:', error);
+    res.status(500).json({ error: 'Error al copiar receta' });
+  }
+});
+
+// ============================================
+// DELETE - ELIMINAR CONSULTA
 // ============================================
 router.delete('/:visitId', authenticateToken, async (req, res) => {
   try {
     const { visitId } = req.params;
+    const visitResult = await query('SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2', [visitId, req.clientId]);
+    if (visitResult.rows.length === 0) return res.status(404).json({ error: 'Consulta no encontrada' });
 
-
-    // Verificar que la consulta existe y pertenece al tenant
-    const visitResult = await query(
-      'SELECT id FROM medical_visits WHERE id = $1 AND tenant_id = $2',
-      [visitId, req.clientId]
-    );
-
-
-    if (visitResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Consulta no encontrada' });
-    }
-
-
-    // Eliminar diagnósticos asociados
+    // Limpieza en cascada manual por seguridad
     await query('DELETE FROM diagnoses WHERE visit_id = $1', [visitId]);
-
-
-    // Eliminar medicamentos asociados
     await query('DELETE FROM treatments WHERE visit_id = $1', [visitId]);
-
-
-    // Eliminar secciones de la historia clínica
     await query('DELETE FROM anamnesis WHERE visit_id = $1', [visitId]);
     await query('DELETE FROM personal_history WHERE visit_id = $1', [visitId]);
     await query('DELETE FROM family_history WHERE visit_id = $1', [visitId]);
@@ -879,24 +528,12 @@ router.delete('/:visitId', authenticateToken, async (req, res) => {
     await query('DELETE FROM system_review WHERE visit_id = $1', [visitId]);
     await query('DELETE FROM physical_exam WHERE visit_id = $1', [visitId]);
     await query('DELETE FROM follow_up WHERE visit_id = $1', [visitId]);
+    await query('DELETE FROM medical_visits WHERE id = $1', [visitId]);
 
-
-    // Eliminar la consulta principal
-    await query(
-      'DELETE FROM medical_visits WHERE id = $1',
-      [visitId]
-    );
-
-
-    res.json({
-      success: true,
-      message: 'Consulta eliminada exitosamente'
-    });
+    res.json({ success: true, message: 'Consulta eliminada exitosamente' });
   } catch (error) {
-    console.error('Error al eliminar consulta:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 export default router;
