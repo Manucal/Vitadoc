@@ -31,7 +31,7 @@ export default function DoctorLogin() {
       console.log('✅ Login exitoso:', data);
 
       // ============================================================
-      // 🟢 CORRECCIÓN: GUARDAR EL USUARIO EN LOCAL STORAGE
+      // 🟢 GUARDAR EL USUARIO EN LOCAL STORAGE
       // ============================================================
       if (data.user) {
         localStorage.setItem('user', JSON.stringify(data.user));
@@ -39,7 +39,14 @@ export default function DoctorLogin() {
       }
       // ============================================================
 
-      // ✅ VERIFICAR isSuperAdmin
+      // 🛑 NUEVO: Verificar si DEBE cambiar contraseña (SECUESTRO)
+      if (data.user.must_change_password) {
+        console.log('⚠️ Cambio de contraseña obligatorio detectado');
+        navigate('/change-password', { replace: true });
+        return;
+      }
+
+      // Si no, flujo normal
       if (data.isSuperAdmin === true) {
         console.log('🔐 SUPER-ADMIN detectado, redirigiendo a /admin');
         navigate('/admin', { replace: true });

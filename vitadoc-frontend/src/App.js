@@ -15,6 +15,7 @@ import PatientVisits from './pages/PatientVisits';
 import VisitDetails from './pages/VisitDetails';
 import VisitSummaryPage from './pages/VisitSummary';
 import ClinicUsers from './pages/ClinicUsers';
+import ChangePassword from './pages/ChangePassword';
 import './App.css';
 import './styles/theme.css';
 
@@ -63,6 +64,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/change-password" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
           <Route
             path="/create-patient"
             element={
