@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import '../styles/DoctorLogin.css'; // Reusamos estilos para mantener consistencia
+import '../styles/DoctorLogin.css';
 
 export default function ChangePassword() {
   const navigate = useNavigate();
@@ -21,23 +21,37 @@ export default function ChangePassword() {
     });
   };
 
+  // ✅ NUEVA FUNCIÓN DE VALIDACIÓN FUERTE
+  const validatePasswordStrength = (password) => {
+    if (password.length < 8) return "La contraseña debe tener al menos 8 caracteres.";
+    if (!/[A-Z]/.test(password)) return "Debe incluir al menos una letra MAYÚSCULA.";
+    if (!/[a-z]/.test(password)) return "Debe incluir al menos una letra minúscula.";
+    if (!/[0-9]/.test(password)) return "Debe incluir al menos un número.";
+    if (!/[\W_]/.test(password)) return "Debe incluir al menos un carácter especial (!@#$%^&*).";
+    return null; // Todo ok
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
+    // 1. Validar que coincidan
     if (formData.newPassword !== formData.confirmPassword) {
       setError('Las contraseñas nuevas no coinciden');
       return;
     }
 
-    if (formData.newPassword.length < 8) {
-      setError('La nueva contraseña debe tener al menos 8 caracteres');
+    // 2. Validar que sea diferente a la anterior
+    if (formData.currentPassword === formData.newPassword) {
+      setError('La nueva contraseña no puede ser igual a la anterior');
       return;
     }
 
-    if (formData.currentPassword === formData.newPassword) {
-      setError('La nueva contraseña no puede ser igual a la anterior');
+    // 3. ✅ Validar fuerza de contraseña (NUEVO)
+    const strengthError = validatePasswordStrength(formData.newPassword);
+    if (strengthError) {
+      setError(strengthError);
       return;
     }
 
@@ -52,12 +66,10 @@ export default function ChangePassword() {
       if (response.data.success) {
         setSuccess('¡Contraseña actualizada exitosamente!');
         
-        // Actualizar el estado local del usuario para quitar el bloqueo
         const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
         storedUser.must_change_password = false;
         localStorage.setItem('user', JSON.stringify(storedUser));
 
-        // Redirigir después de 1.5 segundos
         setTimeout(() => {
           if (storedUser.role === 'admin' && !storedUser.tenant_id) {
              navigate('/admin', { replace: true });
@@ -80,7 +92,9 @@ export default function ChangePassword() {
         <div className="login-header">
           <h2 style={{color: '#d32f2f', marginBottom: '10px'}}>⚠️ Cambio Obligatorio</h2>
           <p className="login-subtitle">
-            Por seguridad, debes cambiar tu contraseña temporal antes de continuar.
+            Por seguridad, crea una contraseña fuerte:
+            <br/>
+            <small>(Mín. 8 caracteres, 1 mayúscula, 1 número y 1 símbolo)</small>
           </p>
         </div>
 
@@ -103,7 +117,7 @@ export default function ChangePassword() {
               type="password"
               name="newPassword"
               className="input-field"
-              placeholder="Mínimo 8 caracteres"
+              placeholder="Ej: VitaDoc2025!"
               value={formData.newPassword}
               onChange={handleChange}
               required

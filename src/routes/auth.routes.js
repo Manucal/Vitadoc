@@ -69,8 +69,9 @@ router.post('/login', async (req, res) => {
 });
 
 // ============================================
-// CAMBIAR CONTRASEÑA (CUALQUIER USUARIO) ✅ NUEVO
+// CAMBIAR CONTRASEÑA (CUALQUIER USUARIO) 
 // ============================================
+
 router.post('/change-password', authenticateToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -80,8 +81,12 @@ router.post('/change-password', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Faltan datos requeridos' });
     }
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    // ✅ VALIDACIÓN DE SEGURIDAD FUERTE
+    const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    if (!strongPasswordRegex.test(newPassword)) {
+      return res.status(400).json({ 
+        error: 'La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula, un número y un símbolo.' 
+      });
     }
 
     // 1. Obtener contraseña actual de la BD
