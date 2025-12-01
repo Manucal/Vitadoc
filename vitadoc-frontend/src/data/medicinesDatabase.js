@@ -1,6 +1,5 @@
 // 💊 Base de datos de Medicamentos EXPANDIDA - 200+ Medicamentos comunes en Colombia
-// Actualizado: 07-11-2025 15:30 PM
-// Incluye: Nombre, dosaje sugerida, vía, frecuencia, instrucciones
+// Actualizado: 22-11-2025 - Blindado contra errores de edición
 
 export const MEDICINES_DATABASE = [
   // ANALGÉSICOS Y ANTIINFLAMATORIOS
@@ -216,7 +215,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 8 horas',
     instructions: 'Tomar 1 hora antes o 2 horas después de comer'
   },
-
   // ANTIPARASITARIOS (MUY COMUNES EN COLOMBIA)
   {
     name: 'Albendazol',
@@ -268,7 +266,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 6 horas',
     instructions: 'Tomar con abundante agua'
   },
-
   // ANTIFÚNGICOS
   {
     name: 'Fluconazol',
@@ -330,7 +327,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: '2 veces al día',
     instructions: 'Aplicar en zona afectada'
   },
-
   // ANTITUBERCULOSOS
   {
     name: 'Isoniazida',
@@ -359,7 +355,7 @@ export const MEDICINES_DATABASE = [
     routes: ['oral'],
     defaultRoute: 'oral',
     frequencies: ['Una o dos veces al día'],
-    defaultFrequencia: 'Una vez al día',
+    defaultFrequency: 'Una vez al día',
     instructions: 'Puede tomarse con alimentos'
   },
   {
@@ -372,7 +368,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Una vez al día',
     instructions: 'Puede tomarse con alimentos'
   },
-
   // ANTIHIPERTENSIVOS
   {
     name: 'Metoprolol',
@@ -474,7 +469,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Una vez al día',
     instructions: 'Preferiblemente en la mañana'
   },
-
   // GASTROENTEROLOGÍA
   {
     name: 'Omeprazol',
@@ -576,7 +570,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 8 horas',
     instructions: 'Tomar con alimentos'
   },
-
   // ANTIHISTAMÍNICOS
   {
     name: 'Loratadina',
@@ -638,7 +631,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 8 horas',
     instructions: 'Puede causar somnolencia'
   },
-
   // ANTIINFLAMATORIOS - ESTEROIDES
   {
     name: 'Prednisona',
@@ -680,7 +672,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Una vez al día',
     instructions: 'Tomar con alimentos'
   },
-
   // BRONCODILATADORES
   {
     name: 'Salbutamol',
@@ -722,7 +713,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 8 horas',
     instructions: 'Usar inhalador'
   },
-
   // CORTICOSTEROIDES INHALADOS
   {
     name: 'Beclometasona',
@@ -744,7 +734,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: '2 veces al día',
     instructions: 'Enjuagarse boca después'
   },
-
   // ANTICOAGULANTES
   {
     name: 'Warfarina',
@@ -776,7 +765,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Una vez al día',
     instructions: 'Para prevención'
   },
-
   // ANTICONVULSIVOS
   {
     name: 'Fenitoína',
@@ -828,7 +816,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: '2 veces al día',
     instructions: 'Puede tomarse con alimentos'
   },
-
   // ANTIHIPERGLUCÉMICOS
   {
     name: 'Metformina',
@@ -860,7 +847,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Variables',
     instructions: 'Inyectable subcutánea'
   },
-
   // VITAMINAS
   {
     name: 'Vitamina B12 (Cianocobalamina)',
@@ -922,7 +908,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Una vez al día',
     instructions: 'Preferiblemente en la mañana'
   },
-
   // DERMATOLÓGICOS
   {
     name: 'Mupirocina',
@@ -974,7 +959,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: '2 veces al día',
     instructions: 'Aplicar en zona afectada'
   },
-
   // OFTALMOLÓGICOS
   {
     name: 'Tobramicina oftálmica',
@@ -996,7 +980,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 4 horas',
     instructions: 'Gotas en los ojos'
   },
-
   // ANTICONCEPTIVOS
   {
     name: 'Anticonceptivo Oral Combinado',
@@ -1018,7 +1001,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Cada 3 meses',
     instructions: 'Inyectable intramuscular'
   },
-
   // ANTIDIARREICOS
   {
     name: 'Bisacodilo',
@@ -1040,7 +1022,6 @@ export const MEDICINES_DATABASE = [
     defaultFrequency: 'Una vez al día',
     instructions: 'Preferiblemente por la noche'
   },
-
   // ANTIESPASMÓDICOS
   {
     name: 'Butilbromuro de Hioscina',
@@ -1054,19 +1035,22 @@ export const MEDICINES_DATABASE = [
   },
 ];
 
-// Función para buscar medicamentos
+// ✅ FUNCIÓN CORREGIDA: Busca medicamentos de forma segura
 export const searchMedicines = (query) => {
-  if (!query || query.trim().length === 0) return [];
+  if (!query || typeof query !== 'string' || query.trim().length === 0) return [];
   
   const searchTerm = query.toLowerCase().trim();
   
   return MEDICINES_DATABASE.filter(medicine =>
     medicine.name.toLowerCase().includes(searchTerm)
-  ).slice(0, 15); // Aumentado a 15 resultados
+  ).slice(0, 15);
 };
 
-// Obtener datos completos de medicamento
+// ✅ FUNCIÓN CORREGIDA: Obtiene datos del medicamento sin crashear
 export const getMedicineData = (medicineName) => {
+  // Validación de seguridad para evitar errores "undefined"
+  if (!medicineName || typeof medicineName !== 'string') return null;
+
   return MEDICINES_DATABASE.find(m =>
     m.name.toLowerCase() === medicineName.toLowerCase()
   );
