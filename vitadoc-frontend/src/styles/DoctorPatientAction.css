@@ -11,14 +11,14 @@
 /* Contenedor principal */
 .doctor-action-container {
   width: 100%;
-  max-width: 1400px;  /* Aumentado de 1200px a 1400px */
+  max-width: 1400px;
 }
 
 /* GRID - LADO A LADO */
 .action-content {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 50px;  /* Aumentado de 40px a 50px */
+  gap: 50px;
   align-items: center;
   margin-top: 130px;  
 }
@@ -27,7 +27,7 @@
 .action-header {
   text-align: center;
   background: white;
-  padding: 67px 50px;  /* Aumentado de 60px 40px a 80px 50px */
+  padding: 67px 50px;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.9);
@@ -35,11 +35,10 @@
   overflow: hidden;
 }
 
-/* Logo - Más grande */
 .action-header .logo {
-  width: 180px;  /* Aumentado de 150px a 180px */
+  width: 180px;
   height: auto;
-  margin-bottom: 40px;  /* Aumentado de 30px a 40px */
+  margin-bottom: 40px;
   border-radius: 12px;
   box-shadow: 0 8px 25px rgba(45, 168, 128, 0.25);
   transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -56,10 +55,9 @@
   box-shadow: 0 12px 35px rgba(45, 168, 128, 0.35);
 }
 
-/* Subtítulo - Más grande */
 .action-subtitle {
   color: #888;
-  font-size: 18px;  /* Aumentado de 16px a 18px */
+  font-size: 18px;
   margin: 0;
   font-weight: 500;
   position: relative;
@@ -67,57 +65,92 @@
   letter-spacing: 0.3px;
 }
 
+/* Badge de Rol */
+.role-badge {
+  display: inline-block;
+  margin-top: 10px;
+  padding: 5px 12px;
+  background: #f3f4f6;
+  color: #555;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* ===== LADO DERECHO - BOTONES ===== */
 .action-buttons-container {
   display: flex;
   flex-direction: column;
-  gap: 18px;  /* Aumentado de 15px a 18px */
+  gap: 18px;
   background: linear-gradient(135deg, #ffffff, #d4f3e3);
-  padding: 50px 40px;  /* Aumentado de 40px 30px a 50px 40px */
+  padding: 50px 40px;
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.9);
 }
 
-/* BOTONES - Más grandes */
+/* Estilos Comunes de Botones */
 .btn-search-patient,
 .btn-register-patient,
 .btn-view-all-patients,
-.btn-logout {
-  padding: 18px 28px;  /* Aumentado de 16px 24px a 18px 28px */
-  font-size: 17px;  /* Aumentado de 16px a 17px */
+.btn-logout,
+.btn-manage-team { /* <--- Agregado aquí */
+  padding: 18px 28px;
+  font-size: 17px;
   border-radius: 10px;
-}
-
-/* BOTÓN 1 - Buscar Paciente */
-.btn-search-patient {
-  background: linear-gradient(135deg, #2DA880 0%, #1ea366 100%);
-  color: white;
   border: none;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(45, 168, 128, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
   overflow: hidden;
+  color: white;
 }
 
-.btn-search-patient::before {
+/* Efecto de brillo común */
+.btn-search-patient::before,
+.btn-register-patient::before,
+.btn-view-all-patients::before,
+.btn-manage-team::before {
   content: '';
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.15);
   transition: left 0.3s ease;
 }
 
-.btn-search-patient:hover::before {
+.btn-search-patient:hover::before,
+.btn-register-patient:hover::before,
+.btn-view-all-patients:hover::before,
+.btn-manage-team:hover::before {
   left: 100%;
+}
+
+/* --- BOTÓN NUEVO: GESTIONAR EQUIPO (MORADO) --- */
+.btn-manage-team {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+  box-shadow: 0 4px 15px rgba(109, 40, 217, 0.3);
+  margin-bottom: 10px;
+}
+
+.btn-manage-team:hover {
+  background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(109, 40, 217, 0.4);
+}
+
+/* BOTÓN 1 - Buscar Paciente */
+.btn-search-patient {
+  background: linear-gradient(135deg, #2DA880 0%, #1ea366 100%);
+  box-shadow: 0 4px 15px rgba(45, 168, 128, 0.3);
 }
 
 .btn-search-patient:hover {
@@ -126,39 +159,10 @@
   box-shadow: 0 6px 25px rgba(45, 168, 128, 0.4);
 }
 
-.btn-search-patient:active {
-  transform: translateY(0);
-}
-
 /* BOTÓN 2 - Registrar */
 .btn-register-patient {
   background: linear-gradient(135deg, #2DA880 0%, #1E5A96 100%);
-  color: white;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(45, 168, 128, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-register-patient::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  transition: left 0.3s ease;
-}
-
-.btn-register-patient:hover::before {
-  left: 100%;
 }
 
 .btn-register-patient:hover {
@@ -167,39 +171,10 @@
   box-shadow: 0 6px 25px rgba(45, 168, 128, 0.4);
 }
 
-.btn-register-patient:active {
-  transform: translateY(0);
-}
-
 /* BOTÓN 3 - Ver Todos */
 .btn-view-all-patients {
   background: linear-gradient(135deg, #1E5A96 0%, #164070 100%);
-  color: white;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
   box-shadow: 0 4px 15px rgba(30, 90, 150, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-view-all-patients::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  transition: left 0.3s ease;
-}
-
-.btn-view-all-patients:hover::before {
-  left: 100%;
 }
 
 .btn-view-all-patients:hover {
@@ -208,107 +183,38 @@
   box-shadow: 0 6px 25px rgba(30, 90, 150, 0.5);
 }
 
-.btn-view-all-patients:active {
-  transform: translateY(0);
-}
-
 /* BOTÓN 4 - Cerrar Sesión */
 .btn-logout {
-  background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+  background: white;
   color: #666;
   border: 2px solid #f36565;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
   margin-top: 5px;
 }
 
-.btn-logout::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: rgba(45, 168, 128, 0.05);
-  transition: left 0.3s ease;
-}
-
-.btn-logout:hover::before {
-  left: 100%;
-}
-
 .btn-logout:hover {
-  background: #f5f5f5;
-  color: #333;
-  border-color: #2DA880;
+  background: #fff5f5;
+  color: #d32f2f;
+  border-color: #d32f2f;
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.btn-logout:active {
-  transform: translateY(0);
-}
-
 /* ===== RESPONSIVE ===== */
 @media (max-width: 900px) {
-  .action-content {
-    grid-template-columns: 1fr;
-    gap: 25px;
-  }
-
-  .action-header {
-    padding: 60px 40px;
-  }
-
-  .action-buttons-container {
-    padding: 40px 30px;
-  }
-
-  .btn-search-patient,
-  .btn-register-patient,
-  .btn-view-all-patients,
-  .btn-logout {
-    padding: 16px 24px;
-    font-size: 16px;
-  }
+  .action-content { grid-template-columns: 1fr; gap: 25px; }
+  .action-header { padding: 60px 40px; }
+  .action-buttons-container { padding: 40px 30px; }
 }
 
 @media (max-width: 600px) {
-  .page-center {
-    padding: 20px 15px;
-  }
-
-  .action-content {
-    gap: 20px;
-  }
-
-  .action-header {
-    padding: 40px 25px;
-  }
-
-  .action-header .logo {
-    width: 120px;
-  }
-
-  .action-subtitle {
-    font-size: 14px;
-  }
-
-  .action-buttons-container {
-    padding: 30px 20px;
-  }
-
-  .btn-search-patient,
-  .btn-register-patient,
-  .btn-view-all-patients,
-  .btn-logout {
+  .page-center { padding: 20px 15px; }
+  .action-content { gap: 20px; }
+  .action-header { padding: 40px 25px; }
+  .action-header .logo { width: 120px; }
+  .action-subtitle { font-size: 14px; }
+  .action-buttons-container { padding: 30px 20px; }
+  .btn-search-patient, .btn-register-patient, .btn-view-all-patients, .btn-logout, .btn-manage-team {
     padding: 14px 20px;
     font-size: 15px;
   }
