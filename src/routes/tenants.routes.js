@@ -4,7 +4,6 @@ import { query } from '../config/database.js';
 import { hashPassword } from '../config/auth.js';
 import { logAction } from '../services/auditService.js';
 
-
 // ✅ HELPER: Validar SUPER-ADMIN
 const validateSuperAdmin = async (userId) => {
   try {
@@ -13,19 +12,15 @@ const validateSuperAdmin = async (userId) => {
       return false;
     }
 
-
     const result = await query(
       'SELECT role, tenant_id FROM users WHERE id = $1',
       [userId]
     );
 
-
     if (result.rows.length === 0) return false;
-
 
     const user = result.rows[0];
     const isSuperAdmin = user.role === 'admin' && user.tenant_id === null;
-
 
     return isSuperAdmin;
   } catch (error) {
@@ -33,7 +28,6 @@ const validateSuperAdmin = async (userId) => {
     return false;
   }
 };
-
 
 // ============================================
 // HELPER: Obtener límite de usuarios por plan
@@ -45,27 +39,8 @@ const getUserLimitByPlan = (plan) => {
     premium: 5,
     enterprise: 999999
   };
-  return limits[plan.toLowerCase()] || 1;
+  return limits[plan?.toLowerCase()] || 1;
 };
-
-
-// ============================================
-// HELPER: Obtener plan de un tenant
-// ============================================
-const getTenantPlan = async (tenantId) => {
-  try {
-    const result = await query(
-      'SELECT subscription_plan FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-    if (result.rows.length === 0) return 'basic';
-    return result.rows[0].subscription_plan;
-  } catch (error) {
-    console.error('Error getting tenant plan:', error);
-    return 'basic';
-  }
-};
-
 
 // ============================================
 // HELPER: Contar usuarios activos de un tenant
@@ -83,9 +58,7 @@ const getActiveUserCount = async (tenantId) => {
   }
 };
 
-
 const router = express.Router();
-
 
 // ============================================
 // POST - CREAR SUPER-ADMIN DE EMERGENCIA
@@ -94,7 +67,6 @@ router.post('/admin/emergency-reset', async (req, res) => {
   try {
     const { secret_key, clinic_name, admin_email, admin_password } = req.body;
 
-
     const EMERGENCY_SECRET = process.env.EMERGENCY_SECRET_KEY || 'vitadoc-emergency-2024';
     
     if (secret_key !== EMERGENCY_SECRET) {
@@ -102,44 +74,29 @@ router.post('/admin/emergency-reset', async (req, res) => {
       return res.status(403).json({ error: 'Secret key inválida' });
     }
 
-
     if (!clinic_name || !admin_email || !admin_password) {
       return res.status(400).json({ error: 'Parámetros incompletos: clinic_name, admin_email, admin_password' });
     }
-
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(admin_email)) {
       return res.status(400).json({ error: 'Email inválido' });
     }
 
-
     if (admin_password.length < 8) {
       return res.status(400).json({ error: 'Contraseña debe tener mínimo 8 caracteres' });
     }
 
-
     console.log(`\n[EMERGENCY RESET] === CREANDO SUPER-ADMIN ===`);
-    console.log(`[EMERGENCY RESET] Clínica: ${clinic_name}`);
-    console.log(`[EMERGENCY RESET] Email: ${admin_email}`);
-
-
-    console.log(`[EMERGENCY RESET] 1. Creando usuario SUPER-ADMIN (sin tenant)...`);
-
-
-    console.log(`[EMERGENCY RESET] 2. Generando hash de contraseña...`);
     const hashedPassword = await hashPassword(admin_password);
-    console.log(`[EMERGENCY RESET] ✓ Hash generado`);
 
-
-    console.log(`[EMERGENCY RESET] 3. Insertando usuario SUPER-ADMIN...`);
     const userResult = await query(
       `INSERT INTO users (tenant_id, username, email, full_name, password_hash, role, status, document_id, created_date)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
        RETURNING id, username, email, role, tenant_id`,
       [
         null,
-        admin_email.split('@')[0],
+        admin_email, // Username = Email
         admin_email,
         'Admin Super',
         hashedPassword,
@@ -149,37 +106,16 @@ router.post('/admin/emergency-reset', async (req, res) => {
       ]
     );
 
-
-    console.log(`[EMERGENCY RESET] ✓ Usuario SUPER-ADMIN creado`);
-    console.log(`[EMERGENCY RESET] === ✓ SUPER-ADMIN CREADO EXITOSAMENTE ===\n`);
-
-
     res.status(201).json({
       success: true,
-      message: '✓ Super-admin creado exitosamente. Puedes acceder inmediatamente.',
-      data: {
-        admin: {
-          id: userResult.rows[0].id,
-          username: userResult.rows[0].username,
-          email: userResult.rows[0].email,
-          role: userResult.rows[0].role,
-          tenant_id: userResult.rows[0].tenant_id
-        },
-        login_credentials: {
-          email: admin_email,
-          password: admin_password
-        }
-      }
+      message: '✓ Super-admin creado exitosamente.',
+      data: { admin: userResult.rows[0] }
     });
   } catch (error) {
     console.error('[EMERGENCY RESET] ✗ ERROR:', error);
-    res.status(500).json({ 
-      error: 'Error en el servidor',
-      details: error.message 
-    });
+    res.status(500).json({ error: 'Error en el servidor', details: error.message });
   }
 });
-
 
 // ============================================
 // GET - OBTENER TODOS LOS TENANTS (SUPER-ADMIN)
@@ -187,31 +123,19 @@ router.post('/admin/emergency-reset', async (req, res) => {
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const isSuperAdmin = await validateSuperAdmin(req.userId);
-
-
-    if (!isSuperAdmin) {
-      console.warn(`[TENANTS] ⚠️ Intento de acceso no autorizado por usuario: ${req.userId}`);
-      return res.status(403).json({ error: 'Solo super-admin puede acceder' });
-    }
-
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede acceder' });
 
     const result = await query(
       `SELECT id, name, type, contact_email, subscription_plan, status, created_date, user_count
-       FROM tenants
-       ORDER BY created_date DESC`
+       FROM tenants ORDER BY created_date DESC`
     );
 
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Error al obtener tenants:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 // ============================================
 // POST - CREAR NUEVO TENANT (SUPER-ADMIN)
@@ -219,63 +143,41 @@ router.get('/', authenticateToken, async (req, res) => {
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const isSuperAdmin = await validateSuperAdmin(req.userId);
-
-
-    if (!isSuperAdmin) {
-      return res.status(403).json({ error: 'Solo super-admin puede crear clínicas' });
-    }
-
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede crear clínicas' });
 
     const { clinic_name, clinic_email, admin_full_name, admin_email, admin_password } = req.body;
-
 
     if (!clinic_name || !admin_email || !admin_password || !admin_full_name) {
       return res.status(400).json({ error: 'Parámetros incompletos' });
     }
 
+    if (admin_password.length < 8) return res.status(400).json({ error: 'Contraseña debe tener mínimo 8 caracteres' });
 
-    if (admin_password.length < 8) {
-      return res.status(400).json({ error: 'Contraseña debe tener mínimo 8 caracteres' });
-    }
-
-
+    // 1. Crear Tenant
     const tenantResult = await query(
       `INSERT INTO tenants (name, type, contact_email, subscription_plan, status)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, contact_email`,
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, name, contact_email`,
       [clinic_name, 'clinic', clinic_email, 'basic', 'active']
     );
-
 
     const tenantId = tenantResult.rows[0].id;
     const hashedPassword = await hashPassword(admin_password);
 
+    // ✅ CAMBIO: Username es el mismo Email
+    const username = admin_email;
 
+    // 2. Crear Usuario Admin
     const userResult = await query(
       `INSERT INTO users (tenant_id, username, email, full_name, password_hash, role, status, document_id, must_change_password)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING id, username, email`,
-      [
-        tenantId,
-        admin_email.split('@')[0],
-        admin_email,
-        admin_full_name,
-        hashedPassword,
-        'admin',
-        'active',
-        null,
-        false
-      ]
+      [tenantId, username, admin_email, admin_full_name, hashedPassword, 'admin', 'active', null, false]
     );
-
 
     res.status(201).json({
       success: true,
       message: 'Clínica y usuario admin creados exitosamente',
-      data: {
-        tenant: tenantResult.rows[0],
-        admin: userResult.rows[0]
-      }
+      data: { tenant: tenantResult.rows[0], admin: userResult.rows[0] }
     });
   } catch (error) {
     console.error('Error al crear tenant:', error);
@@ -283,149 +185,62 @@ router.post('/', authenticateToken, async (req, res) => {
   }
 });
 
-
 // ============================================
-// PUT - ACTUALIZAR TENANT (SUPER-ADMIN) ✅ NUEVO
+// PUT - ACTUALIZAR TENANT (SUPER-ADMIN)
 // ============================================
 router.put('/:tenantId', authenticateToken, async (req, res) => {
   try {
     const { tenantId } = req.params;
     const { name, contact_email, contact_phone, type, subscription_plan } = req.body;
 
-    console.log(`\n[UPDATE TENANT] === ACTUALIZANDO TENANT: ${tenantId} ===`);
-    console.log(`[UPDATE TENANT] Datos a actualizar:`, { name, contact_email, contact_phone, type, subscription_plan });
-
-    // Validar que es SUPER-ADMIN
     const isSuperAdmin = await validateSuperAdmin(req.userId);
-    if (!isSuperAdmin) {
-      console.warn(`[UPDATE TENANT] ✗ NO es SUPER-ADMIN`);
-      return res.status(403).json({ error: 'Solo super-admin puede actualizar clínicas' });
-    }
-    console.log(`[UPDATE TENANT] ✓ Es SUPER-ADMIN`);
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede actualizar clínicas' });
 
-    // Validar que al menos un campo esté presente
     if (!subscription_plan && !name && !contact_email && !type && !contact_phone) {
-      return res.status(400).json({ error: 'Debe proporcionar al menos un campo para actualizar' });
+      return res.status(400).json({ error: 'Debe proporcionar al menos un campo' });
     }
 
-    // Verificar que el tenant existe
-    console.log(`[UPDATE TENANT] Verificando si tenant existe...`);
-    const tenantExists = await query(
-      'SELECT * FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-
-    if (tenantExists.rows.length === 0) {
-      console.log(`[UPDATE TENANT] ✗ Tenant NO encontrado`);
-      return res.status(404).json({ error: 'Clínica no encontrada' });
-    }
+    const tenantExists = await query('SELECT * FROM tenants WHERE id = $1', [tenantId]);
+    if (tenantExists.rows.length === 0) return res.status(404).json({ error: 'Clínica no encontrada' });
 
     const oldTenant = tenantExists.rows[0];
-    console.log(`[UPDATE TENANT] ✓ Tenant encontrado`);
-
-    // Construir objeto de actualización dinámicamente
     const updateFields = [];
     const updateValues = [];
     let paramCount = 1;
 
-    if (subscription_plan) {
-      updateFields.push(`subscription_plan = $${paramCount}`);
-      updateValues.push(subscription_plan);
-      paramCount++;
-    }
-    if (name) {
-      updateFields.push(`name = $${paramCount}`);
-      updateValues.push(name);
-      paramCount++;
-    }
-    if (contact_email) {
-      updateFields.push(`contact_email = $${paramCount}`);
-      updateValues.push(contact_email);
-      paramCount++;
-    }
-    if (contact_phone) {
-      updateFields.push(`contact_phone = $${paramCount}`);
-      updateValues.push(contact_phone);
-      paramCount++;
-    }
-    if (type) {
-      updateFields.push(`type = $${paramCount}`);
-      updateValues.push(type);
-      paramCount++;
-    }
+    if (subscription_plan) { updateFields.push(`subscription_plan = $${paramCount++}`); updateValues.push(subscription_plan); }
+    if (name) { updateFields.push(`name = $${paramCount++}`); updateValues.push(name); }
+    if (contact_email) { updateFields.push(`contact_email = $${paramCount++}`); updateValues.push(contact_email); }
+    if (contact_phone) { updateFields.push(`contact_phone = $${paramCount++}`); updateValues.push(contact_phone); }
+    if (type) { updateFields.push(`type = $${paramCount++}`); updateValues.push(type); }
 
-    // Agregar el ID del tenant al final
     updateValues.push(tenantId);
 
-    console.log(`[UPDATE TENANT] Ejecutando UPDATE con ${updateFields.length} campo(s)...`);
-
-    // Ejecutar actualización
     const result = await query(
-      `UPDATE tenants 
-       SET ${updateFields.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING *`,
+      `UPDATE tenants SET ${updateFields.join(', ')} WHERE id = $${paramCount} RETURNING *`,
       updateValues
     );
 
-    if (result.rows.length === 0) {
-      console.log(`[UPDATE TENANT] ✗ No se actualizó ningún tenant`);
-      return res.status(404).json({ error: 'Clínica no encontrada' });
-    }
+    // Auditoría
+    try {
+      await logAction({
+        tenantId,
+        actorId: req.userId || 'unknown',
+        action: 'UPDATE_TENANT',
+        resourceType: 'TENANT',
+        resourceId: tenantId,
+        status: 'SUCCESS',
+        changes: { plan: { old: oldTenant.subscription_plan, new: subscription_plan } },
+        req
+      });
+    } catch (e) { console.error('Audit Error', e); }
 
-    console.log(`[UPDATE TENANT] ✓ Tenant actualizado exitosamente`);
-
-    // Registrar cambios para auditoría
-    const changes = {};
-    if (subscription_plan && subscription_plan !== oldTenant.subscription_plan) {
-      changes.subscription_plan = { old: oldTenant.subscription_plan, new: subscription_plan };
-      console.log(`[UPDATE TENANT] Plan actualizado: ${oldTenant.subscription_plan} → ${subscription_plan}`);
-    }
-    if (name && name !== oldTenant.name) {
-      changes.name = { old: oldTenant.name, new: name };
-    }
-    if (contact_email && contact_email !== oldTenant.contact_email) {
-      changes.contact_email = { old: oldTenant.contact_email, new: contact_email };
-    }
-    if (contact_phone && contact_phone !== oldTenant.contact_phone) {
-      changes.contact_phone = { old: oldTenant.contact_phone, new: contact_phone };
-    }
-    if (type && type !== oldTenant.type) {
-      changes.type = { old: oldTenant.type, new: type };
-    }
-
-    // Log de auditoría
-    if (Object.keys(changes).length > 0) {
-      try {
-        await logAction({
-          tenantId,
-          actorId: req.userId || 'unknown',
-          action: 'UPDATE_TENANT',
-          resourceType: 'TENANT',
-          resourceId: tenantId,
-          status: 'SUCCESS',
-          changes,
-          req
-        });
-        console.log(`[UPDATE TENANT] ✓ Auditoría registrada`);
-      } catch (auditErr) {
-        console.error('Error logging UPDATE_TENANT action:', auditErr);
-      }
-    }
-
-    console.log(`[UPDATE TENANT] === ✓ ACTUALIZACIÓN COMPLETADA EXITOSAMENTE ===\n`);
-
-    res.json({
-      success: true,
-      message: 'Clínica actualizada exitosamente',
-      data: result.rows[0]
-    });
+    res.json({ success: true, message: 'Clínica actualizada', data: result.rows[0] });
   } catch (error) {
-    console.error(`[UPDATE TENANT] ✗ ERROR:`, error);
-    res.status(500).json({ error: 'Error en el servidor', details: error.message });
+    console.error(`Error updating tenant:`, error);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 // ============================================
 // GET - OBTENER USUARIOS DE UN TENANT
@@ -433,46 +248,21 @@ router.put('/:tenantId', authenticateToken, async (req, res) => {
 router.get('/:tenantId/users', authenticateToken, async (req, res) => {
   try {
     const { tenantId } = req.params;
-
-
     const isSuperAdmin = await validateSuperAdmin(req.userId);
-
-
-    if (!isSuperAdmin) {
-      return res.status(403).json({ error: 'Solo super-admin puede acceder' });
-    }
-
-
-    const tenantExists = await query(
-      'SELECT id FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-
-
-    if (tenantExists.rows.length === 0) {
-      return res.status(404).json({ error: 'Tenant no encontrado' });
-    }
-
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede acceder' });
 
     const result = await query(
       `SELECT id, username, email, full_name, phone, role, status, document_id, created_date
-       FROM users
-       WHERE tenant_id = $1
-       ORDER BY created_date DESC`,
+       FROM users WHERE tenant_id = $1 ORDER BY created_date DESC`,
       [tenantId]
     );
 
-
-    res.json({
-      success: true,
-      data: result.rows
-    });
+    res.json({ success: true, data: result.rows });
   } catch (error) {
     console.error('Error al obtener usuarios:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 // ============================================
 // POST - CREAR MÚLTIPLES USUARIOS (BULK)
@@ -482,144 +272,70 @@ router.post('/:tenantId/bulk-users', authenticateToken, async (req, res) => {
     const { tenantId } = req.params;
     const { users } = req.body;
 
-
     const isSuperAdmin = await validateSuperAdmin(req.userId);
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede crear usuarios' });
 
+    if (!users || !Array.isArray(users) || users.length === 0) return res.status(400).json({ error: 'Datos incompletos' });
+    if (users.length > 100) return res.status(400).json({ error: 'Máximo 100 usuarios por importación' });
 
-    if (!isSuperAdmin) {
-      return res.status(403).json({ error: 'Solo super-admin puede crear usuarios' });
-    }
-
-
-    if (!users || !Array.isArray(users) || users.length === 0) {
-      return res.status(400).json({ error: 'Datos incompletos' });
-    }
-
-
-    if (users.length > 100) {
-      return res.status(400).json({ error: 'Máximo 100 usuarios por importación' });
-    }
-
-
-    const tenantResult = await query(
-      'SELECT id, subscription_plan FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-
-
-    if (tenantResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Tenant no encontrado' });
-    }
-
+    const tenantResult = await query('SELECT subscription_plan FROM tenants WHERE id = $1', [tenantId]);
+    if (tenantResult.rows.length === 0) return res.status(404).json({ error: 'Tenant no encontrado' });
 
     const plan = tenantResult.rows[0].subscription_plan;
     const userLimit = getUserLimitByPlan(plan);
     const currentUserCount = await getActiveUserCount(tenantId);
-    const usersToAdd = users.length;
     
-    console.log(`[BULK USERS] Plan: ${plan}, Límite: ${userLimit}, Usuarios actuales: ${currentUserCount}, Intentando agregar: ${usersToAdd}`);
-
-
-    if (currentUserCount + usersToAdd > userLimit) {
-      return res.status(400).json({
-        error: `Límite de usuarios excedido para el plan ${plan.toUpperCase()}`,
-        details: {
-          plan: plan,
-          limit: userLimit,
-          current_users: currentUserCount,
-          trying_to_add: usersToAdd,
-          available_slots: userLimit - currentUserCount
-        }
-      });
+    if (currentUserCount + users.length > userLimit) {
+      return res.status(400).json({ error: `Límite de usuarios excedido para el plan ${plan.toUpperCase()}` });
     }
-
-
-    console.log(`[BULK USERS] ✓ Validación de límite pasada. Disponibles: ${userLimit - currentUserCount} slots`);
-
 
     const createdUsers = [];
     const errors = [];
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const VALID_ROLES = ['doctor', 'nurse', 'secretary', 'admin'];
 
-
     for (const user of users) {
       try {
         const { full_name, document_id, role, phone, email } = user;
 
-
-        if (!full_name || !document_id || !role) {
-          errors.push({ user: full_name || 'Sin nombre', error: 'Datos incompletos' });
+        // ✅ CAMBIO: Email ahora es obligatorio porque será el username
+        if (!full_name || !document_id || !role || !email) {
+          errors.push({ user: full_name || 'Sin nombre', error: 'Falta email o datos obligatorios' });
           continue;
         }
-
 
         if (!VALID_ROLES.includes(role.toLowerCase())) {
           errors.push({ user: full_name, error: `Rol '${role}' no válido` });
           continue;
         }
 
-
-        if (email && !emailRegex.test(email)) {
+        if (!emailRegex.test(email)) {
           errors.push({ user: full_name, error: 'Email inválido' });
           continue;
         }
 
-
-        const docExists = await query(
-          'SELECT id FROM users WHERE document_id = $1 AND tenant_id = $2',
-          [document_id, tenantId]
+        // Validar duplicados (Email o Documento)
+        const exists = await query(
+          'SELECT id FROM users WHERE email = $1 OR document_id = $2',
+          [email, document_id]
         );
 
-
-        if (docExists.rows.length > 0) {
-          errors.push({ user: full_name, error: 'Documento ya existe en esta clínica' });
+        if (exists.rows.length > 0) {
+          errors.push({ user: full_name, error: 'Email o documento ya existe' });
           continue;
         }
 
+        // ✅ CAMBIO: Username = Email
+        const username = email;
 
-        if (email) {
-          const emailExists = await query(
-            'SELECT id FROM users WHERE email = $1 AND tenant_id = $2',
-            [email, tenantId]
-          );
-
-
-          if (emailExists.rows.length > 0) {
-            errors.push({ user: full_name, error: 'Email ya existe en esta clínica' });
-            continue;
-          }
-        }
-
-
-        const nameParts = full_name.split(' ').filter(p => p.length > 0);
-        const username = nameParts
-          .map(p => p.substring(0, 2).toUpperCase())
-          .join('')
-          .substring(0, 12);
-
-
-        const userExists = await query(
-          'SELECT id FROM users WHERE username = $1',
-          [username]
-        );
-
-
-        if (userExists.rows.length > 0) {
-          errors.push({ user: full_name, error: `Usuario ${username} ya existe` });
-          continue;
-        }
-
-
+        // Contraseña Temporal: Inicial + apellido + ultimos 6 cedula
         const passwordNameParts = full_name.split(' ').filter(p => p.length > 0);
         const firstNameLetter = passwordNameParts[0]?.[0].toUpperCase() || 'U';
         const lastNameLetter = passwordNameParts[passwordNameParts.length - 1]?.[0].toLowerCase() || 'u';
         const cedularDigits = document_id.slice(-6);
         const tempPassword = `${firstNameLetter}${lastNameLetter}${cedularDigits}`;
 
-
         const hashedPassword = await hashPassword(tempPassword);
-
 
         const result = await query(
           `INSERT INTO users (tenant_id, username, email, full_name, password_hash, role, phone, document_id, status, must_change_password)
@@ -628,7 +344,7 @@ router.post('/:tenantId/bulk-users', authenticateToken, async (req, res) => {
           [
             tenantId,
             username,
-            email || `${username.toLowerCase()}@vitadoc.local`,
+            email,
             full_name,
             hashedPassword,
             role.toLowerCase(),
@@ -638,7 +354,6 @@ router.post('/:tenantId/bulk-users', authenticateToken, async (req, res) => {
             true
           ]
         );
-
 
         createdUsers.push({
           full_name,
@@ -652,13 +367,9 @@ router.post('/:tenantId/bulk-users', authenticateToken, async (req, res) => {
       }
     }
 
+    await query('UPDATE tenants SET user_count = (SELECT COUNT(*) FROM users WHERE tenant_id = $1) WHERE id = $1', [tenantId]);
 
-    await query(
-      'UPDATE tenants SET user_count = (SELECT COUNT(*) FROM users WHERE tenant_id = $1) WHERE id = $1',
-      [tenantId]
-    );
-
-
+    // Log de auditoría simplificado para no llenar logs
     if (createdUsers.length > 0) {
       try {
         await logAction({
@@ -667,30 +378,18 @@ router.post('/:tenantId/bulk-users', authenticateToken, async (req, res) => {
           action: 'BULK_USERS',
           resourceType: 'USER',
           status: 'SUCCESS',
-          changes: {
-            total_created: createdUsers.length,
-            users: createdUsers.map(u => u.username)
-          },
-          metadata: {
-            plan: plan,
-            limit: userLimit
-          },
+          changes: { total_created: createdUsers.length },
           req
         });
-      } catch (auditErr) {
-        console.error('Error logging BULK_USERS action:', auditErr);
-      }
+      } catch (e) { console.error('Audit Error', e); }
     }
-
 
     res.json({
       success: true,
       message: `${createdUsers.length} usuarios creados exitosamente`,
       data: {
         created_users: createdUsers,
-        errors: errors.length > 0 ? errors : null,
-        total_created: createdUsers.length,
-        total_errors: errors.length
+        errors: errors.length > 0 ? errors : null
       }
     });
   } catch (error) {
@@ -698,7 +397,6 @@ router.post('/:tenantId/bulk-users', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 // ============================================
 // PUT - ACTUALIZAR USUARIO
@@ -708,96 +406,28 @@ router.put('/:tenantId/users/:userId', authenticateToken, async (req, res) => {
     const { tenantId, userId } = req.params;
     const { full_name, email, phone, role } = req.body;
 
-
     const isSuperAdmin = await validateSuperAdmin(req.userId);
-
-
-    if (!isSuperAdmin) {
-      return res.status(403).json({ error: 'Solo super-admin puede editar usuarios' });
-    }
-
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede editar' });
 
     const VALID_ROLES = ['doctor', 'nurse', 'secretary', 'admin'];
-
-
-    if (role && !VALID_ROLES.includes(role.toLowerCase())) {
-      return res.status(400).json({ error: `Rol '${role}' no válido` });
-    }
-
-
-    const userExists = await query(
-      'SELECT id FROM users WHERE id = $1 AND tenant_id = $2',
-      [userId, tenantId]
-    );
-
-
-    if (userExists.rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
+    if (role && !VALID_ROLES.includes(role.toLowerCase())) return res.status(400).json({ error: `Rol no válido` });
 
     if (email) {
-      const emailExists = await query(
-        'SELECT id FROM users WHERE email = $1 AND id != $2 AND tenant_id = $3',
-        [email, userId, tenantId]
-      );
-
-
-      if (emailExists.rows.length > 0) {
-        return res.status(400).json({ error: 'Email ya existe en esta clínica' });
-      }
+      const emailExists = await query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, userId]);
+      if (emailExists.rows.length > 0) return res.status(400).json({ error: 'Email ya existe' });
     }
 
-
-    const oldUserResult = await query(
-      'SELECT full_name, email, phone, role FROM users WHERE id = $1',
-      [userId]
-    );
-    const oldUser = oldUserResult.rows[0];
-
-
     await query(
-      `UPDATE users SET full_name = $1, email = $2, phone = $3, role = $4
-       WHERE id = $5 AND tenant_id = $6`,
+      `UPDATE users SET full_name = $1, email = $2, phone = $3, role = $4 WHERE id = $5 AND tenant_id = $6`,
       [full_name, email, phone, role ? role.toLowerCase() : undefined, userId, tenantId]
     );
 
-
-    const changes = {};
-    if (full_name !== oldUser.full_name) changes.full_name = { old: oldUser.full_name, new: full_name };
-    if (email !== oldUser.email) changes.email = { old: oldUser.email, new: email };
-    if (phone !== oldUser.phone) changes.phone = { old: oldUser.phone, new: phone };
-    if (role && role.toLowerCase() !== oldUser.role) changes.role = { old: oldUser.role, new: role.toLowerCase() };
-
-
-    if (Object.keys(changes).length > 0) {
-      try {
-        await logAction({
-          tenantId,
-          actorId: req.userId || 'unknown',
-          action: 'UPDATE_USER',
-          resourceType: 'USER',
-          resourceId: userId,
-          status: 'SUCCESS',
-          changes,
-          req
-        });
-      } catch (auditErr) {
-        console.error('Error logging UPDATE_USER action:', auditErr);
-      }
-    }
-
-
-    res.json({
-      success: true,
-      message: 'Usuario actualizado exitosamente'
-    });
+    res.json({ success: true, message: 'Usuario actualizado exitosamente' });
   } catch (error) {
     console.error('Error al actualizar usuario:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 // ============================================
 // DELETE - ELIMINAR USUARIO
@@ -805,392 +435,78 @@ router.put('/:tenantId/users/:userId', authenticateToken, async (req, res) => {
 router.delete('/:tenantId/users/:userId', authenticateToken, async (req, res) => {
   try {
     const { tenantId, userId } = req.params;
-
-
     const isSuperAdmin = await validateSuperAdmin(req.userId);
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede eliminar' });
 
+    await query('DELETE FROM users WHERE id = $1 AND tenant_id = $2', [userId, tenantId]);
+    await query('UPDATE tenants SET user_count = (SELECT COUNT(*) FROM users WHERE tenant_id = $1) WHERE id = $1', [tenantId]);
 
-    if (!isSuperAdmin) {
-      return res.status(403).json({ error: 'Solo super-admin puede eliminar usuarios' });
-    }
-
-
-    const userExists = await query(
-      'SELECT id FROM users WHERE id = $1 AND tenant_id = $2',
-      [userId, tenantId]
-    );
-
-
-    if (userExists.rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-
-    const userToDeleteResult = await query(
-      'SELECT username, email, full_name FROM users WHERE id = $1 AND tenant_id = $2',
-      [userId, tenantId]
-    );
-    const userToDelete = userToDeleteResult.rows[0];
-
-
-    await query(
-      `DELETE FROM users WHERE id = $1 AND tenant_id = $2`,
-      [userId, tenantId]
-    );
-
-
-    await query(
-      `UPDATE tenants SET user_count = (SELECT COUNT(*) FROM users WHERE tenant_id = $1) WHERE id = $1`,
-      [tenantId]
-    );
-
-
-    try {
-      await logAction({
-        tenantId,
-        actorId: req.userId || 'unknown',
-        action: 'DELETE_USER',
-        resourceType: 'USER',
-        resourceId: userId,
-        status: 'SUCCESS',
-        changes: {
-          username: { deleted: userToDelete.username },
-          email: { deleted: userToDelete.email },
-          full_name: { deleted: userToDelete.full_name }
-        },
-        req
-      });
-    } catch (auditErr) {
-      console.error('Error logging DELETE_USER action:', auditErr);
-    }
-
-
-    res.json({
-      success: true,
-      message: 'Usuario eliminado exitosamente'
-    });
+    res.json({ success: true, message: 'Usuario eliminado exitosamente' });
   } catch (error) {
     console.error('Error al eliminar usuario:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
 // ============================================
-// PATCH - DESACTIVAR TENANT (SUPER-ADMIN)
+// PATCH - DESACTIVAR TENANT
 // ============================================
 router.patch('/:tenantId/deactivate', authenticateToken, async (req, res) => {
   const tenantId = req.params.tenantId;
-  
-  console.log(`\n[DEACTIVATE TENANT] === DESACTIVANDO TENANT: ${tenantId} ===`);
-
-
   try {
-    console.log(`[DEACTIVATE TENANT] 1. Verificando si es SUPER-ADMIN...`);
     const isSuperAdmin = await validateSuperAdmin(req.userId);
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede desactivar' });
 
+    await query(`UPDATE tenants SET status = 'inactive' WHERE id = $1`, [tenantId]);
+    await query(`UPDATE users SET status = 'inactive' WHERE tenant_id = $1`, [tenantId]);
 
-    if (!isSuperAdmin) {
-      console.log(`[DEACTIVATE TENANT] ✗ NO es SUPER-ADMIN`);
-      return res.status(403).json({ error: 'Solo super-admin puede desactivar clínicas' });
-    }
-    console.log(`[DEACTIVATE TENANT] ✓ Es SUPER-ADMIN`);
-
-
-    console.log(`[DEACTIVATE TENANT] 2. Verificando si tenant existe...`);
-    const tenantResult = await query(
-      'SELECT id, status FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-
-
-    if (tenantResult.rows.length === 0) {
-      console.log(`[DEACTIVATE TENANT] ✗ Tenant NO encontrado`);
-      return res.status(404).json({ error: 'Tenant no encontrado' });
-    }
-
-
-    const tenant = tenantResult.rows[0];
-    console.log(`[DEACTIVATE TENANT] ✓ Tenant encontrado. Estado actual: ${tenant.status}`);
-
-
-    console.log(`[DEACTIVATE TENANT] 3. Actualizando status a 'inactive'...`);
-    await query(
-      `UPDATE tenants SET status = $1 WHERE id = $2`,
-      ['inactive', tenantId]
-    );
-    console.log(`[DEACTIVATE TENANT] ✓ Status actualizado`);
-
-
-    console.log(`[DEACTIVATE TENANT] 4. Deactivando usuarios de la clínica...`);
-    const deactivateUsersResult = await query(
-      `UPDATE users SET status = $1 WHERE tenant_id = $2`,
-      ['inactive', tenantId]
-    );
-    console.log(`[DEACTIVATE TENANT] ✓ Usuarios deactivados: ${deactivateUsersResult.rowCount} usuarios`);
-
-
-    try {
-      await logAction({
-        tenantId,
-        actorId: req.userId || 'unknown',
-        action: 'DEACTIVATE_TENANT',
-        resourceType: 'TENANT',
-        resourceId: tenantId,
-        status: 'SUCCESS',
-        changes: {
-          status: { old: 'active', new: 'inactive' },
-          users_affected: deactivateUsersResult.rowCount
-        },
-        req
-      });
-    } catch (auditErr) {
-      console.error('Error logging DEACTIVATE_TENANT action:', auditErr);
-    }
-
-
-    console.log(`[DEACTIVATE TENANT] === ✓ DESACTIVACIÓN COMPLETADA EXITOSAMENTE ===\n`);
-
-
-    res.json({
-      success: true,
-      message: 'Clínica desactivada exitosamente. Los usuarios no podrán acceder.',
-      data: {
-        tenant_id: tenantId,
-        new_status: 'inactive',
-        users_deactivated: deactivateUsersResult.rowCount
-      }
-    });
+    res.json({ success: true, message: 'Clínica desactivada exitosamente' });
   } catch (error) {
-    console.error(`[DEACTIVATE TENANT] ✗ ERROR:`, error);
-    console.log(`[DEACTIVATE TENANT] === ✗ DESACTIVACIÓN FALLIDA ===\n`);
-    res.status(500).json({ 
-      error: 'Error en el servidor',
-      details: error.message 
-    });
+    console.error('Error deactivate tenant:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
 // ============================================
-// PATCH - REACTIVAR TENANT (SUPER-ADMIN)
+// PATCH - REACTIVAR TENANT
 // ============================================
 router.patch('/:tenantId/reactivate', authenticateToken, async (req, res) => {
   const tenantId = req.params.tenantId;
-  
-  console.log(`\n[REACTIVATE TENANT] === REACTIVANDO TENANT: ${tenantId} ===`);
-
-
   try {
-    console.log(`[REACTIVATE TENANT] 1. Verificando si es SUPER-ADMIN...`);
     const isSuperAdmin = await validateSuperAdmin(req.userId);
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede reactivar' });
 
+    await query(`UPDATE tenants SET status = 'active' WHERE id = $1`, [tenantId]);
+    await query(`UPDATE users SET status = 'active' WHERE tenant_id = $1`, [tenantId]);
 
-    if (!isSuperAdmin) {
-      console.log(`[REACTIVATE TENANT] ✗ NO es SUPER-ADMIN`);
-      return res.status(403).json({ error: 'Solo super-admin puede reactivar clínicas' });
-    }
-    console.log(`[REACTIVATE TENANT] ✓ Es SUPER-ADMIN`);
-
-
-    console.log(`[REACTIVATE TENANT] 2. Verificando si tenant existe...`);
-    const tenantResult = await query(
-      'SELECT id, status FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-
-
-    if (tenantResult.rows.length === 0) {
-      console.log(`[REACTIVATE TENANT] ✗ Tenant NO encontrado`);
-      return res.status(404).json({ error: 'Tenant no encontrado' });
-    }
-
-
-    const tenant = tenantResult.rows[0];
-    console.log(`[REACTIVATE TENANT] ✓ Tenant encontrado. Estado actual: ${tenant.status}`);
-
-
-    console.log(`[REACTIVATE TENANT] 3. Actualizando status a 'active'...`);
-    await query(
-      `UPDATE tenants SET status = $1 WHERE id = $2`,
-      ['active', tenantId]
-    );
-    console.log(`[REACTIVATE TENANT] ✓ Status actualizado`);
-
-
-    console.log(`[REACTIVATE TENANT] 4. Reactivando usuarios de la clínica...`);
-    const reactivateUsersResult = await query(
-      `UPDATE users SET status = $1 WHERE tenant_id = $2`,
-      ['active', tenantId]
-    );
-    console.log(`[REACTIVATE TENANT] ✓ Usuarios reactivados: ${reactivateUsersResult.rowCount} usuarios`);
-
-
-    try {
-      await logAction({
-        tenantId,
-        actorId: req.userId || 'unknown',
-        action: 'REACTIVATE_TENANT',
-        resourceType: 'TENANT',
-        resourceId: tenantId,
-        status: 'SUCCESS',
-        changes: {
-          status: { old: 'inactive', new: 'active' },
-          users_affected: reactivateUsersResult.rowCount
-        },
-        req
-      });
-    } catch (auditErr) {
-      console.error('Error logging REACTIVATE_TENANT action:', auditErr);
-    }
-
-
-    console.log(`[REACTIVATE TENANT] === ✓ REACTIVACIÓN COMPLETADA EXITOSAMENTE ===\n`);
-
-
-    res.json({
-      success: true,
-      message: 'Clínica reactivada exitosamente. Los usuarios pueden acceder nuevamente.',
-      data: {
-        tenant_id: tenantId,
-        new_status: 'active',
-        users_reactivated: reactivateUsersResult.rowCount
-      }
-    });
+    res.json({ success: true, message: 'Clínica reactivada exitosamente' });
   } catch (error) {
-    console.error(`[REACTIVATE TENANT] ✗ ERROR:`, error);
-    console.log(`[REACTIVATE TENANT] === ✗ REACTIVACIÓN FALLIDA ===\n`);
-    res.status(500).json({ 
-      error: 'Error en el servidor',
-      details: error.message 
-    });
+    console.error('Error reactivate tenant:', error);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
-
 // ============================================
-// DELETE - ELIMINAR TENANT (SUPER-ADMIN)
+// DELETE - ELIMINAR TENANT
 // ============================================
 router.delete('/:tenantId', authenticateToken, async (req, res) => {
   const tenantId = req.params.tenantId;
-  
-  console.log(`\n[DELETE TENANT] === INICIANDO ELIMINACIÓN DEL TENANT: ${tenantId} ===`);
-
-
   try {
-    console.log(`[DELETE TENANT] 1. Verificando si es SUPER-ADMIN...`);
     const isSuperAdmin = await validateSuperAdmin(req.userId);
+    if (!isSuperAdmin) return res.status(403).json({ error: 'Solo super-admin puede eliminar' });
 
+    await query(`DELETE FROM medical_visits WHERE patient_id IN (SELECT id FROM patients WHERE tenant_id = $1)`, [tenantId]);
+    await query('DELETE FROM patients WHERE tenant_id = $1', [tenantId]);
+    await query('DELETE FROM users WHERE tenant_id = $1', [tenantId]);
+    const deleteResult = await query('DELETE FROM tenants WHERE id = $1', [tenantId]);
 
-    if (!isSuperAdmin) {
-      console.log(`[DELETE TENANT] ✗ NO es SUPER-ADMIN`);
-      return res.status(403).json({ error: 'Solo super-admin puede eliminar clínicas' });
-    }
-    console.log(`[DELETE TENANT] ✓ Es SUPER-ADMIN`);
+    if (deleteResult.rowCount === 0) return res.status(404).json({ error: 'Tenant no encontrado' });
 
-
-    console.log(`[DELETE TENANT] 2. Verificando si tenant existe...`);
-    const tenantExists = await query(
-      'SELECT id FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-
-
-    if (tenantExists.rows.length === 0) {
-      console.log(`[DELETE TENANT] ✗ Tenant NO encontrado`);
-      return res.status(404).json({ error: 'Tenant no encontrado' });
-    }
-    console.log(`[DELETE TENANT] ✓ Tenant encontrado`);
-
-
-    console.log(`[DELETE TENANT] 3. Iniciando eliminación en cascada...`);
-
-
-    console.log(`[DELETE TENANT] 3a. Eliminando visitas médicas...`);
-    await query(
-      `DELETE FROM medical_visits 
-       WHERE patient_id IN (
-         SELECT id FROM patients WHERE tenant_id = $1
-       )`,
-      [tenantId]
-    );
-    console.log(`[DELETE TENANT] ✓ Visitas eliminadas`);
-
-
-    console.log(`[DELETE TENANT] 3b. Limpiando referencias de pacientes...`);
-    await query(
-      `UPDATE patients SET created_by = NULL 
-       WHERE tenant_id = $1`,
-      [tenantId]
-    );
-    console.log(`[DELETE TENANT] ✓ Referencias limpiadas`);
-
-
-    console.log(`[DELETE TENANT] 3c. Eliminando pacientes...`);
-    await query(
-      'DELETE FROM patients WHERE tenant_id = $1',
-      [tenantId]
-    );
-    console.log(`[DELETE TENANT] ✓ Pacientes eliminados`);
-
-
-    console.log(`[DELETE TENANT] 3d. Eliminando usuarios...`);
-    const deleteUsersResult = await query(
-      'DELETE FROM users WHERE tenant_id = $1',
-      [tenantId]
-    );
-    console.log(`[DELETE TENANT] ✓ Usuarios eliminados: ${deleteUsersResult.rowCount} filas`);
-
-
-    console.log(`[DELETE TENANT] 4. Eliminando tenant...`);
-    const deleteTenantResult = await query(
-      'DELETE FROM tenants WHERE id = $1',
-      [tenantId]
-    );
-    console.log(`[DELETE TENANT] ✓ Tenant eliminado: ${deleteTenantResult.rowCount} filas`);
-
-
-    if (deleteTenantResult.rowCount === 0) {
-      console.log(`[DELETE TENANT] ✗ No se eliminó ningún tenant`);
-      return res.status(400).json({ error: 'No se pudo eliminar el tenant' });
-    }
-
-
-    try {
-      await logAction({
-        tenantId,
-        actorId: req.userId || 'unknown',
-        action: 'DELETE_TENANT',
-        resourceType: 'TENANT',
-        resourceId: tenantId,
-        status: 'SUCCESS',
-        changes: {
-          users_deleted: deleteUsersResult.rowCount,
-          patients_deleted: true
-        },
-        req
-      });
-    } catch (auditErr) {
-      console.error('Error logging DELETE_TENANT action:', auditErr);
-    }
-
-
-    console.log(`[DELETE TENANT] === ✓ ELIMINACIÓN COMPLETADA EXITOSAMENTE ===\n`);
-
-
-    res.json({
-      success: true,
-      message: 'Clínica eliminada exitosamente'
-    });
+    res.json({ success: true, message: 'Clínica eliminada exitosamente' });
   } catch (error) {
-    console.error(`[DELETE TENANT] ✗ ERROR:`, error);
-    console.log(`[DELETE TENANT] === ✗ ELIMINACIÓN FALLIDA ===\n`);
-    res.status(500).json({ 
-      error: 'Error en el servidor',
-      details: error.message 
-    });
+    console.error(`Error deleting tenant:`, error);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
-
 
 export default router;
