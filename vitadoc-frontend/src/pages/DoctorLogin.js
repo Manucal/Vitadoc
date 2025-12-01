@@ -30,6 +30,15 @@ export default function DoctorLogin() {
 
       console.log('✅ Login exitoso:', data);
 
+      // ============================================================
+      // 🟢 CORRECCIÓN: GUARDAR EL USUARIO EN LOCAL STORAGE
+      // ============================================================
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+        console.log('💾 Usuario guardado en Local Storage:', data.user);
+      }
+      // ============================================================
+
       // ✅ VERIFICAR isSuperAdmin
       if (data.isSuperAdmin === true) {
         console.log('🔐 SUPER-ADMIN detectado, redirigiendo a /admin');
