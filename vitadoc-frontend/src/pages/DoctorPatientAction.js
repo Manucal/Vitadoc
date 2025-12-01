@@ -34,6 +34,7 @@ export default function DoctorPatientAction() {
           <div className="action-header">
             <img src="/logotipo.png" alt="VitaDoc" className="logo" />
             <p className="action-subtitle">Bienvenido, {userName}</p>
+            <p style={{color: 'red', background: 'yellow'}}>ROL DETECTADO: "{userRole}"</p>
             <p className="role-badge">
               {userRole === 'admin' ? 'Administrador' : 'Profesional Médico'}
             </p>
