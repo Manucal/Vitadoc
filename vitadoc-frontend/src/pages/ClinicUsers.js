@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import '../styles/AdminPage.css'; // Usamos estilos existentes para ahorrar tiempo
+import '../styles/ClinicUsers.css'; // Usamos estilos existentes para ahorrar tiempo
 
 export default function ClinicUsers() {
   const navigate = useNavigate();
@@ -87,8 +87,8 @@ export default function ClinicUsers() {
 
   return (
     <div className="page-center">
-      <div className="admin-container" style={{ maxWidth: '1000px' }}>
-        <div className="admin-header">
+      <div className="clinic-container" style={{ maxWidth: '1000px' }}>
+        <div className="clinic-header">
           <h2>Gestión de Equipo Médico</h2>
           <div className="header-actions">
             <button className="btn-secondary" onClick={() => navigate('/doctor-patient-action')}>
