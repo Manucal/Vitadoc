@@ -1,0 +1,121 @@
+/* Fondo oscuro desenfocado */
+.modal-overlay-confirm {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* La tarjeta blanca */
+.modal-content-confirm {
+  background: white;
+  padding: 30px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+/* Icono animado arriba */
+.modal-icon {
+  font-size: 40px;
+  margin-bottom: 15px;
+  display: inline-block;
+  padding: 15px;
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-danger {
+  background-color: #fee2e2;
+  border: 4px solid #fecaca;
+  animation: pulseRed 2s infinite;
+}
+
+.icon-info {
+  background-color: #e0f2fe;
+  border: 4px solid #bae6fd;
+}
+
+.modal-title {
+  margin: 0 0 10px 0;
+  color: #1e293b;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.modal-message {
+  color: #64748b;
+  font-size: 15px;
+  margin-bottom: 25px;
+  line-height: 1.5;
+}
+
+/* Botones */
+.modal-actions-confirm {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.modal-actions-confirm button {
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  flex: 1;
+}
+
+.btn-cancel {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.btn-cancel:hover {
+  background-color: #e2e8f0;
+  color: #334155;
+}
+
+.btn-confirm-primary {
+  background: linear-gradient(135deg, #2DA880 0%, #1ea366 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(45, 168, 128, 0.3);
+}
+
+.btn-confirm-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(45, 168, 128, 0.4);
+}
+
+.btn-confirm-danger {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.btn-confirm-danger:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(254, 202, 202, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(254, 202, 202, 0); } 100% { box-shadow: 0 0 0 0 rgba(254, 202, 202, 0); } }

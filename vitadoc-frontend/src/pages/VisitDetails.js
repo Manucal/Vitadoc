@@ -3,7 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import AddDiagnosis from './AddDiagnosis';
 import AddTreatment from './AddTreatment';
-import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import DeleteConfirmModal from '../components/DeleteConfirmModal'; // Puedes mantenerlo o quitarlo si ya no lo usas
+import ConfirmModal from '../components/ConfirmModal'; // ✅ IMPORTAMOS EL NUEVO MODAL
 import { getNextTabAfterSave, TAB_SEQUENCE } from '../config/tabSequence-config';
 import { validateVitalSigns } from '../utils/visitDetailsHelpers';
 import '../styles/VisitDetails.css';
@@ -23,6 +24,15 @@ export default function VisitDetails() {
   // Estados para editar diagnósticos y tratamientos
   const [editingDiagnosis, setEditingDiagnosis] = useState(null);
   const [editingTreatment, setEditingTreatment] = useState(null);
+
+  // ✅ ESTADO PARA EL MODAL DE CONFIRMACIÓN
+  const [confirmConfig, setConfirmConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    action: null, // La función a ejecutar si dice "Sí"
+    isDanger: false
+  });
 
   // ESTADO PARA NUEVA CONSULTA
   const [newConsultationData, setNewConsultationData] = useState({
@@ -114,10 +124,26 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ NUEVO: COPIAR RECETA ANTERIOR
-  const handleCopyLastPrescription = async () => {
-    if (!window.confirm('¿Deseas copiar los medicamentos de la última consulta de este paciente?')) return;
+  // ✅ NUEVO: Lógica del Modal para Confirmar Acción
+  const onConfirmAction = () => {
+    if (confirmConfig.action) {
+      confirmConfig.action();
+    }
+    setConfirmConfig({ ...confirmConfig, isOpen: false });
+  };
 
+  // 1. REPETIR RECETA (Con Modal)
+  const handleCopyLastPrescription = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: '🔄 Repetir Receta',
+      message: '¿Deseas copiar automáticamente los medicamentos de la última consulta de este paciente?',
+      isDanger: false,
+      action: executeCopyPrescription
+    });
+  };
+
+  const executeCopyPrescription = async () => {
     try {
       setLoading(true);
       const response = await api.post(`/medical-visits/${visitId}/copy-last-prescription`, {}, {
@@ -125,8 +151,8 @@ export default function VisitDetails() {
       });
 
       if (response.data.success) {
-        alert(response.data.message); // "Se copiaron X medicamentos"
-        fetchVisitDetails(); // Recargar para ver los medicamentos nuevos
+        alert(response.data.message);
+        fetchVisitDetails();
       }
     } catch (err) {
       alert(err.response?.data?.error || 'No se pudo copiar la receta anterior');
@@ -140,24 +166,32 @@ export default function VisitDetails() {
     setShowAddDiagnosis(true);
   };
 
-  // ELIMINAR DIAGNÓSTICO
-  const handleDeleteDiagnosis = async (diagnosisId) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este diagnóstico?')) {
-      try {
-        const response = await api.delete(
-          `/medical-visits/${visitId}/diagnoses/${diagnosisId}`,
-          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-        );
+  // 2. ELIMINAR DIAGNÓSTICO (Con Modal)
+  const handleDeleteDiagnosis = (diagnosisId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: '🗑️ Eliminar Diagnóstico',
+      message: '¿Estás seguro de que deseas eliminar este diagnóstico? Esta acción no se puede deshacer.',
+      isDanger: true,
+      action: () => executeDeleteDiagnosis(diagnosisId)
+    });
+  };
 
-        if (response.data.success) {
-          setVisit(prev => ({
-            ...prev,
-            diagnoses: prev.diagnoses.filter(d => d.id !== diagnosisId)
-          }));
-        }
-      } catch (err) {
-        alert(`Error al eliminar diagnóstico: ${err.response?.data?.error || err.message}`);
+  const executeDeleteDiagnosis = async (diagnosisId) => {
+    try {
+      const response = await api.delete(
+        `/medical-visits/${visitId}/diagnoses/${diagnosisId}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+      );
+
+      if (response.data.success) {
+        setVisit(prev => ({
+          ...prev,
+          diagnoses: prev.diagnoses.filter(d => d.id !== diagnosisId)
+        }));
       }
+    } catch (err) {
+      alert(`Error al eliminar diagnóstico: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -167,24 +201,32 @@ export default function VisitDetails() {
     setShowAddTreatment(true);
   };
 
-  // ELIMINAR TRATAMIENTO
-  const handleDeleteTreatment = async (treatmentId) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este medicamento?')) {
-      try {
-        const response = await api.delete(
-          `/medical-visits/${visitId}/treatments/${treatmentId}`,
-          { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-        );
+  // 3. ELIMINAR TRATAMIENTO (Con Modal)
+  const handleDeleteTreatment = (treatmentId) => {
+    setConfirmConfig({
+      isOpen: true,
+      title: '🗑️ Eliminar Medicamento',
+      message: '¿Estás seguro de que deseas eliminar este medicamento de la receta?',
+      isDanger: true,
+      action: () => executeDeleteTreatment(treatmentId)
+    });
+  };
 
-        if (response.data.success) {
-          setVisit(prev => ({
-            ...prev,
-            treatments: prev.treatments.filter(t => t.id !== treatmentId)
-          }));
-        }
-      } catch (err) {
-        alert(`Error al eliminar medicamento: ${err.response?.data?.error || err.message}`);
+  const executeDeleteTreatment = async (treatmentId) => {
+    try {
+      const response = await api.delete(
+        `/medical-visits/${visitId}/treatments/${treatmentId}`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+      );
+
+      if (response.data.success) {
+        setVisit(prev => ({
+          ...prev,
+          treatments: prev.treatments.filter(t => t.id !== treatmentId)
+        }));
       }
+    } catch (err) {
+      alert(`Error al eliminar medicamento: ${err.response?.data?.error || err.message}`);
     }
   };
 
@@ -505,35 +547,11 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ... OTRAS PESTAÑAS (Anamnesis, etc) ... */}
+        {/* ... TABS DE CONTENIDO ... */}
         {activeTab === 'anamnesis' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <div className="section-header">
-                <h3>Historia de la Enfermedad Actual</h3>
-                <button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'anamnesis' ? null : 'anamnesis')}>
-                  {editingField === 'anamnesis' ? '✕ Cancelar' : ' Editar'}
-                </button>
-              </div>
-              {editingField === 'anamnesis' ? (
-                <div className="edit-form">
-                  <div className="form-group"><label>Enfermedad Actual</label><textarea name="currentIllness" value={editData.currentIllness} onChange={handleEditChange} rows="4" className="input-field" /></div>
-                  <div className="form-group"><label>Duración de Síntomas</label><input type="text" name="symptomDuration" value={editData.symptomDuration} onChange={handleEditChange} className="input-field" placeholder="Ej: 3 días" /></div>
-                  <div className="form-group"><label>Severidad</label><select name="symptomSeverity" value={editData.symptomSeverity} onChange={handleEditChange} className="input-field"><option value="">Selecciona</option><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div>
-                  <button className="btn btn-primary" onClick={handleSaveAnamnesis}>✓ Guardar y continuar</button>
-                </div>
-              ) : (
-                <div className="view-form">
-                  <p><strong>Enfermedad Actual:</strong></p><p>{visit.anamnesis?.current_illness || 'No registrada'}</p>
-                  <p><strong>Duración:</strong></p><p>{visit.anamnesis?.symptom_duration || '-'}</p>
-                  <p><strong>Severidad:</strong></p><p>{visit.anamnesis?.symptom_severity || '-'}</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Historia de la Enfermedad Actual</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'anamnesis' ? null : 'anamnesis')}>{editingField === 'anamnesis' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'anamnesis' ? (<div className="edit-form"><div className="form-group"><label>Enfermedad Actual</label><textarea name="currentIllness" value={editData.currentIllness} onChange={handleEditChange} rows="4" className="input-field" /></div><div className="form-group"><label>Duración de Síntomas</label><input type="text" name="symptomDuration" value={editData.symptomDuration} onChange={handleEditChange} className="input-field" placeholder="Ej: 3 días" /></div><div className="form-group"><label>Severidad</label><select name="symptomSeverity" value={editData.symptomSeverity} onChange={handleEditChange} className="input-field"><option value="">Selecciona</option><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div><button className="btn btn-primary" onClick={handleSaveAnamnesis}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p><strong>Enfermedad Actual:</strong></p><p>{visit.anamnesis?.current_illness || 'No registrada'}</p><p><strong>Duración:</strong></p><p>{visit.anamnesis?.symptom_duration || '-'}</p><p><strong>Severidad:</strong></p><p>{visit.anamnesis?.symptom_severity || '-'}</p></div>)}</div></div>
         )}
 
-        {/* Secciones VitalSigns, SystemReview, PhysicalExam - MANTENIDAS (resumidas aquí para brevedad, pero en tu archivo final deben estar completas como en el código anterior) */}
         {activeTab === 'vital-signs' && visit && (
           <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Signos Vitales</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'vital-signs' ? null : 'vital-signs')}>{editingField === 'vital-signs' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'vital-signs' ? (<div className="edit-form"><div className="form-row-2"><div className="form-group"><label>Peso (kg)</label><input type="number" name="weight" value={editData.weight} onChange={handleEditChange} className="input-field" step="0.1" /></div><div className="form-group"><label>Altura (cm)</label><input type="number" name="height" value={editData.height} onChange={handleEditChange} className="input-field" /></div></div><div className="form-row-2"><div className="form-group"><label>P.A. Sistólica (mmHg)</label><input type="number" name="systolicBp" value={editData.systolicBp} onChange={handleEditChange} className="input-field" /></div><div className="form-group"><label>P.A. Diastólica (mmHg)</label><input type="number" name="diastolicBp" value={editData.diastolicBp} onChange={handleEditChange} className="input-field" /></div></div><div className="form-row-2"><div className="form-group"><label>Frecuencia Cardíaca (FC)</label><input type="number" name="heartRate" value={editData.heartRate} onChange={handleEditChange} className="input-field" /></div><div className="form-group"><label>Frecuencia Respiratoria (FR)</label><input type="number" name="respiratoryRate" value={editData.respiratoryRate} onChange={handleEditChange} className="input-field" /></div></div><div className="form-group"><label>Temperatura (°C)</label><input type="number" name="bodyTemperature" value={editData.bodyTemperature} onChange={handleEditChange} className="input-field" step="0.1" /></div><button className="btn btn-primary" onClick={handleSaveVitalSigns}>✓ Guardar y continuar</button></div>) : (<div className="view-form vital-signs-grid"><div className="vital-item"><strong>Peso:</strong> {visit.vitalSigns?.weight || '-'} kg</div><div className="vital-item"><strong>Altura:</strong> {visit.vitalSigns?.height || '-'} cm</div><div className="vital-item"><strong>IMC:</strong> {visit.vitalSigns?.imc ? Number(visit.vitalSigns.imc).toFixed(2) : '-'}</div><div className="vital-item"><strong>P.A.:</strong> {visit.vitalSigns?.systolic_bp || '-'}/{visit.vitalSigns?.diastolic_bp || '-'} mmHg</div><div className="vital-item"><strong>F.C.:</strong> {visit.vitalSigns?.heart_rate || '-'} bpm</div><div className="vital-item"><strong>F.R.:</strong> {visit.vitalSigns?.respiratory_rate || '-'} rpm</div><div className="vital-item"><strong>Temperatura:</strong> {visit.vitalSigns?.body_temperature || '-'} °C</div></div>)}</div></div>
         )}
@@ -554,7 +572,6 @@ export default function VisitDetails() {
           <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Recomendaciones</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'recommendations' ? null : 'recommendations')}>{editingField === 'recommendations' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'recommendations' ? (<div className="edit-form"><div className="form-group"><label>Recomendaciones y Plan de Seguimiento</label><textarea name="recommendations" value={editData.recommendations} onChange={handleEditChange} className="input-field" rows="6" placeholder="Describe las recomendaciones y plan de manejo..." /></div><button className="btn btn-primary" onClick={handleSaveRecommendations}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p>{visit.followUp?.follow_up_reason || 'Sin recomendaciones registradas'}</p></div>)}</div></div>
         )}
 
-        {/* ✅ AQUÍ ESTÁ EL BOTÓN DE REPETIR EN TREATMENTS */}
         {activeTab === 'treatments' && visit && (
           <div className="tab-content">
             <div className="section-card">
@@ -618,7 +635,6 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ... CHECKLIST Y MODALES ... */}
         {activeTab === 'checklist' && visit && (
           <div className="tab-content"><div className="section-card"><h3>📋 Checklist de Historia Clínica</h3><p className="checklist-subtitle">Verifica que todos los campos estén completos</p><div className="checklist-container"><ul className="checklist-list">{[{ id: 'anamnesis', label: 'Anamnesis', icon: '📝' }, { id: 'vitalSigns', label: 'Signos Vitales', icon: '❤️' }, { id: 'systemReview', label: 'Revisión Sistemas', icon: '🔍' }, { id: 'physicalExam', label: 'Examen Físico', icon: '👨‍⚕️' }, { id: 'diagnoses', label: 'Diagnósticos', icon: '📋' }, { id: 'recommendations', label: 'Recomendaciones', icon: '💊' }, { id: 'treatments', label: 'Medicamentos', icon: '🏥' }].map((section) => { const status = getSectionStatus(section.id); const statusIcon = getStatusIcon(status); return (<li key={section.id} className="checklist-item"><div className="item-left"><span className="section-icon">{section.icon}</span><span className="section-label">{section.label}</span></div><div className={`status-badge status-${status}`} style={{ color: statusIcon.color }} title={statusIcon.label}>{statusIcon.icon}</div></li>); })}</ul><div className="checklist-button-container"><button className={`btn-finalize ${allSectionsComplete() ? 'btn-enabled' : 'btn-disabled'}`} onClick={handleFinalizeConsultation} disabled={!allSectionsComplete()} title={allSectionsComplete() ? 'Finalizar historia clínica' : 'Completa todos los campos primero'}>{allSectionsComplete() ? '✓ Finalizar Historia' : '⚠️ Completa los campos faltantes'}</button></div></div></div></div>
         )}
@@ -640,6 +656,16 @@ export default function VisitDetails() {
             onClose={handleCloseAddTreatment}
           />
         )}
+
+        {/* ✅ COMPONENTE MODAL DE CONFIRMACIÓN */}
+        <ConfirmModal
+          isOpen={confirmConfig.isOpen}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          isDanger={confirmConfig.isDanger}
+          onConfirm={onConfirmAction}
+          onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        />
       </div>
     </div>
   );
