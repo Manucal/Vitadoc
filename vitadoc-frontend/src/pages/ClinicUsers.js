@@ -102,8 +102,8 @@ export default function ClinicUsers() {
       }
 
       await fetchUsers();
-      if (!response.data.tempPassword) { // Si es edición, cerramos. Si es creación, mostramos pass.
-         // Mantener modal abierto solo si hay contraseña que mostrar
+      if (!response.data.tempPassword) { 
+         // Si es edición, cerramos. Si es creación, mantenemos abierto para mostrar pass.
       }
 
     } catch (err) {
@@ -149,12 +149,16 @@ export default function ClinicUsers() {
   return (
     <div className="page-center">
       <div className="clinic-container">
+        
+        {/* ✅ BOTÓN ATRÁS SIMPLE (Fuera del header, arriba a la izquierda) */}
+        <button className="back-button-simple" onClick={() => navigate('/doctor-patient-action')}>
+          ← Atrás
+        </button>
+
         <div className="clinic-header">
           <h2>Gestión de Equipo Médico</h2>
           <div className="header-actions">
-            <button className="btn-secondary" onClick={() => navigate('/doctor-patient-action')}>
-              ← Volver
-            </button>
+            {/* El botón Volver se movió arriba, aquí solo queda Nuevo Usuario */}
             <button className="btn-primary" onClick={openCreateModal}>
               + Nuevo Usuario
             </button>

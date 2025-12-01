@@ -175,6 +175,39 @@
 .input-field { width: 100%; padding: 12px 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; background: #f8fafc; }
 .modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: #999; }
 
+/* ... (Mantén el resto de tu CSS igual, solo agrega/modifica esto) ... */
+
+/* BOTÓN ATRÁS SIMPLE (Estilo texto) */
+.back-button-simple {
+  background: none;
+  border: none;
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  margin-bottom: 20px; /* Espacio antes del título */
+  transition: color 0.2s;
+}
+
+.back-button-simple:hover {
+  color: #1E5A96; /* Azul corporativo al pasar el mouse */
+  transform: translateX(-3px); /* Pequeña animación hacia la izquierda */
+}
+
+/* Ajuste del Header para que se vea bien sin el botón de volver */
+.clinic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding-bottom: 20px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
 /* ✅ ARREGLO DE ALINEACIÓN DE BOTONES DEL MODAL */
 .modal-actions { 
   display: flex; 
