@@ -8,7 +8,6 @@ import { getNextTabAfterSave, TAB_SEQUENCE } from '../config/tabSequence-config'
 import { validateVitalSigns } from '../utils/visitDetailsHelpers';
 import '../styles/VisitDetails.css';
 
-
 export default function VisitDetails() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -21,11 +20,11 @@ export default function VisitDetails() {
   const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
 
-  // ✅ NUEVO: Estados para editar diagnósticos y tratamientos
+  // Estados para editar diagnósticos y tratamientos
   const [editingDiagnosis, setEditingDiagnosis] = useState(null);
   const [editingTreatment, setEditingTreatment] = useState(null);
 
-  // ✅ ESTADO PARA NUEVA CONSULTA
+  // ESTADO PARA NUEVA CONSULTA
   const [newConsultationData, setNewConsultationData] = useState({
     reasonForVisit: ''
   });
@@ -115,13 +114,33 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ EDITAR DIAGNÓSTICO
+  // ✅ NUEVO: COPIAR RECETA ANTERIOR
+  const handleCopyLastPrescription = async () => {
+    if (!window.confirm('¿Deseas copiar los medicamentos de la última consulta de este paciente?')) return;
+
+    try {
+      setLoading(true);
+      const response = await api.post(`/medical-visits/${visitId}/copy-last-prescription`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+
+      if (response.data.success) {
+        alert(response.data.message); // "Se copiaron X medicamentos"
+        fetchVisitDetails(); // Recargar para ver los medicamentos nuevos
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'No se pudo copiar la receta anterior');
+      setLoading(false);
+    }
+  };
+
+  // EDITAR DIAGNÓSTICO
   const handleEditDiagnosis = (diagnosis) => {
     setEditingDiagnosis(diagnosis);
     setShowAddDiagnosis(true);
   };
 
-  // ✅ ELIMINAR DIAGNÓSTICO
+  // ELIMINAR DIAGNÓSTICO
   const handleDeleteDiagnosis = async (diagnosisId) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este diagnóstico?')) {
       try {
@@ -135,7 +154,6 @@ export default function VisitDetails() {
             ...prev,
             diagnoses: prev.diagnoses.filter(d => d.id !== diagnosisId)
           }));
-          alert('✓ Diagnóstico eliminado exitosamente');
         }
       } catch (err) {
         alert(`Error al eliminar diagnóstico: ${err.response?.data?.error || err.message}`);
@@ -143,13 +161,13 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ EDITAR TRATAMIENTO
+  // EDITAR TRATAMIENTO
   const handleEditTreatment = (treatment) => {
     setEditingTreatment(treatment);
     setShowAddTreatment(true);
   };
 
-  // ✅ ELIMINAR TRATAMIENTO
+  // ELIMINAR TRATAMIENTO
   const handleDeleteTreatment = async (treatmentId) => {
     if (window.confirm('¿Estás seguro de que deseas eliminar este medicamento?')) {
       try {
@@ -163,7 +181,6 @@ export default function VisitDetails() {
             ...prev,
             treatments: prev.treatments.filter(t => t.id !== treatmentId)
           }));
-          alert('✓ Medicamento eliminado exitosamente');
         }
       } catch (err) {
         alert(`Error al eliminar medicamento: ${err.response?.data?.error || err.message}`);
@@ -171,7 +188,6 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ CERRAR MODALES Y LIMPIAR ESTADO DE EDICIÓN
   const handleCloseAddDiagnosis = () => {
     setShowAddDiagnosis(false);
     setEditingDiagnosis(null);
@@ -222,14 +238,12 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ FUNCIÓN PARA OBTENER ESTADO DE CADA SECCIÓN
   const getSectionStatus = (section) => {
     if (!visit) return 'empty';
 
     switch (section) {
       case 'anamnesis':
         return visit.anamnesis?.current_illness?.trim() ? 'complete' : 'empty';
-      
       case 'vitalSigns':
         const hasWeight = visit.vitalSigns?.weight;
         const hasHeight = visit.vitalSigns?.height;
@@ -237,7 +251,6 @@ export default function VisitDetails() {
         if (hasWeight && hasHeight && hasBP) return 'complete';
         if (hasWeight || hasHeight || hasBP) return 'partial';
         return 'empty';
-      
       case 'systemReview':
         const systemFields = [
           visit.systemReview?.head_neck,
@@ -248,48 +261,36 @@ export default function VisitDetails() {
         if (filledFields === 3) return 'complete';
         if (filledFields > 0) return 'partial';
         return 'empty';
-      
       case 'physicalExam':
         return visit.physicalExam?.general_appearance?.trim() ? 'complete' : 'empty';
-      
       case 'diagnoses':
         if (visit.diagnoses?.length > 0) return 'complete';
         return 'empty';
-      
       case 'recommendations':
         return visit.followUp?.follow_up_reason?.trim() ? 'complete' : 'empty';
-      
       case 'treatments':
         if (visit.treatments?.length > 0) return 'complete';
         return 'empty';
-      
       default:
         return 'empty';
     }
   };
 
-  // ✅ VERIFICAR SI TODO ESTÁ COMPLETO
   const allSectionsComplete = () => {
     if (!visit) return false;
     const sections = ['anamnesis', 'vitalSigns', 'systemReview', 'physicalExam', 'diagnoses', 'recommendations', 'treatments'];
     return sections.every(section => getSectionStatus(section) === 'complete');
   };
 
-  // ✅ OBTENER ÍCONO Y COLOR PARA EL ESTADO
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'complete':
-        return { icon: '✓', color: '#16a34a', label: 'Completo' };
-      case 'partial':
-        return { icon: '⊙', color: '#ea580c', label: 'Parcial' };
-      case 'empty':
-        return { icon: '✕', color: '#dc2626', label: 'Incompleto' };
-      default:
-        return { icon: '?', color: '#999', label: 'Desconocido' };
+      case 'complete': return { icon: '✓', color: '#16a34a', label: 'Completo' };
+      case 'partial': return { icon: '⊙', color: '#ea580c', label: 'Parcial' };
+      case 'empty': return { icon: '✕', color: '#dc2626', label: 'Incompleto' };
+      default: return { icon: '?', color: '#999', label: 'Desconocido' };
     }
   };
 
-  // ✅ FINALIZAR CONSULTA - CON VALIDACIÓN
   const handleFinalizeConsultation = async () => {
     if (!allSectionsComplete()) {
       alert('⚠️ Por favor completa todos los campos de la historia clínica');
@@ -325,27 +326,19 @@ export default function VisitDetails() {
 
   const handleSaveAnamnesis = async () => {
     try {
-      await api.put(
-        `/medical-visits/${visitId}/anamnesis`,
-        {
-          currentIllness: editData.currentIllness,
-          symptomDuration: editData.symptomDuration,
-          symptomSeverity: editData.symptomSeverity
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      await api.put(`/medical-visits/${visitId}/anamnesis`, {
+        currentIllness: editData.currentIllness,
+        symptomDuration: editData.symptomDuration,
+        symptomSeverity: editData.symptomSeverity
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('anamnesis');
-    } catch (err) {
-      alert('Error al guardar: ' + err.response?.data?.error);
-    }
+    } catch (err) { alert('Error al guardar: ' + err.response?.data?.error); }
   };
 
-  // ✅ AQUÍ AGREGAMOS VALIDACIONES
   const handleSaveVitalSigns = async () => {
     try {
-      // ✅ VALIDAR ANTES DE GUARDAR
       const validationErrors = validateVitalSigns({
         weight: editData.weight,
         height: editData.height,
@@ -361,90 +354,65 @@ export default function VisitDetails() {
         return;
       }
 
-      // ✅ Si valida OK, guardar normalmente
-      await api.put(
-        `/medical-visits/${visitId}/vital-signs`,
-        {
-          weight: parseFloat(editData.weight),
-          height: parseInt(editData.height),
-          systolicBp: parseInt(editData.systolicBp),
-          diastolicBp: parseInt(editData.diastolicBp),
-          heartRate: parseInt(editData.heartRate),
-          respiratoryRate: parseInt(editData.respiratoryRate),
-          bodyTemperature: parseFloat(editData.bodyTemperature)
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      await api.put(`/medical-visits/${visitId}/vital-signs`, {
+        weight: parseFloat(editData.weight),
+        height: parseInt(editData.height),
+        systolicBp: parseInt(editData.systolicBp),
+        diastolicBp: parseInt(editData.diastolicBp),
+        heartRate: parseInt(editData.heartRate),
+        respiratoryRate: parseInt(editData.respiratoryRate),
+        bodyTemperature: parseFloat(editData.bodyTemperature)
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('vital-signs');
-    } catch (err) {
-      alert('Error al guardar signos vitales');
-    }
+    } catch (err) { alert('Error al guardar signos vitales'); }
   };
 
   const handleSaveSystemReview = async () => {
     try {
-      await api.put(
-        `/medical-visits/${visitId}/system-review`,
-        {
-          headNeck: editData.headNeck,
-          ocular: editData.ocular,
-          ears: editData.ears,
-          thoraxAbdomen: editData.thoraxAbdomen,
-          respiratory: editData.respiratory,
-          cardiovascular: editData.cardiovascular,
-          digestive: editData.digestive,
-          genitourinary: editData.genitourinary,
-          musculoskeletal: editData.musculoskeletal,
-          skin: editData.skin,
-          nervousSystem: editData.nervousSystem
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      await api.put(`/medical-visits/${visitId}/system-review`, {
+        headNeck: editData.headNeck,
+        ocular: editData.ocular,
+        ears: editData.ears,
+        thoraxAbdomen: editData.thoraxAbdomen,
+        respiratory: editData.respiratory,
+        cardiovascular: editData.cardiovascular,
+        digestive: editData.digestive,
+        genitourinary: editData.genitourinary,
+        musculoskeletal: editData.musculoskeletal,
+        skin: editData.skin,
+        nervousSystem: editData.nervousSystem
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('system-review');
-    } catch (err) {
-      alert('Error al guardar revisión por sistemas');
-    }
+    } catch (err) { alert('Error al guardar revisión por sistemas'); }
   };
 
   const handleSavePhysicalExam = async () => {
     try {
-      await api.put(
-        `/medical-visits/${visitId}/physical-exam`,
-        {
-          generalAppearance: editData.generalAppearance,
-          mentalStatus: editData.mentalStatus,
-          detailedFindings: editData.detailedFindings,
-          abnormalities: editData.abnormalities
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      await api.put(`/medical-visits/${visitId}/physical-exam`, {
+        generalAppearance: editData.generalAppearance,
+        mentalStatus: editData.mentalStatus,
+        detailedFindings: editData.detailedFindings,
+        abnormalities: editData.abnormalities
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('physical-exam');
-    } catch (err) {
-      alert('Error al guardar examen físico');
-    }
+    } catch (err) { alert('Error al guardar examen físico'); }
   };
 
   const handleSaveRecommendations = async () => {
     try {
-      await api.put(
-        `/medical-visits/${visitId}/follow-up`,
-        {
-          followUpReason: editData.recommendations
-        },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
-      );
+      await api.put(`/medical-visits/${visitId}/follow-up`, {
+        followUpReason: editData.recommendations
+      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('recommendations');
-    } catch (err) {
-      alert('Error al guardar recomendaciones');
-    }
+    } catch (err) { alert('Error al guardar recomendaciones'); }
   };
 
   const handleBack = () => {
@@ -483,9 +451,7 @@ export default function VisitDetails() {
         {error && <div className="error-message">{error}</div>}
 
         <div className="tabs-container">
-          {TAB_SEQUENCE
-            .filter(tab => tab.id !== 'summary')
-            .map((tab) => (
+          {TAB_SEQUENCE.filter(tab => tab.id !== 'summary').map((tab) => (
             <button
               key={tab.id}
               className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
@@ -496,24 +462,18 @@ export default function VisitDetails() {
             </button>
           ))}
           {visit && (
-            <button
-              className={`tab-button ${activeTab === 'checklist' ? 'active' : ''}`}
-              onClick={() => setActiveTab('checklist')}
-            >
+            <button className={`tab-button ${activeTab === 'checklist' ? 'active' : ''}`} onClick={() => setActiveTab('checklist')}>
               📋 Checklist
             </button>
           )}
         </div>
 
-        {/* NUEVA CONSULTA TAB */}
         {activeTab === 'new-consultation' && (
           <div className="tab-content">
             <div className="section-card">
               <div className="new-consultation-container">
                 <h3>Nueva Consulta Médica</h3>
-                
                 {newConsultationError && <div className="error-message">{newConsultationError}</div>}
-
                 {visit ? (
                   <div className="consultation-created">
                     <div className="info-box">
@@ -521,7 +481,6 @@ export default function VisitDetails() {
                       <p><strong>Razón de la Consulta:</strong></p>
                       <p className="reason-text">{visit.reasonForVisit || '-'}</p>
                     </div>
-                    
                     <div className="consultation-info">
                       <p><strong>Estado:</strong> <span className="status-badge">{visit.status}</span></p>
                       <p><strong>Paciente:</strong> {visit.patient?.fullName}</p>
@@ -532,23 +491,10 @@ export default function VisitDetails() {
                   <form onSubmit={handleCreateNewConsultation}>
                     <div className="form-group">
                       <label>Motivo de la Consulta *</label>
-                      <textarea
-                        name="reasonForVisit"
-                        className="input-field textarea-field"
-                        placeholder="Describe el motivo de la consulta"
-                        value={newConsultationData.reasonForVisit}
-                        onChange={handleNewConsultationChange}
-                        rows="4"
-                        required
-                      />
+                      <textarea name="reasonForVisit" className="input-field textarea-field" placeholder="Describe el motivo de la consulta" value={newConsultationData.reasonForVisit} onChange={handleNewConsultationChange} rows="4" required />
                     </div>
-
                     <div className="form-buttons">
-                      <button 
-                        type="submit" 
-                        className="btn btn-primary"
-                        disabled={newConsultationLoading}
-                      >
+                      <button type="submit" className="btn btn-primary" disabled={newConsultationLoading}>
                         {newConsultationLoading ? '⏳ Guardando...' : '✓ Crear Consulta'}
                       </button>
                     </div>
@@ -559,399 +505,70 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ANAMNESIS TAB */}
+        {/* ... OTRAS PESTAÑAS (Anamnesis, etc) ... */}
         {activeTab === 'anamnesis' && visit && (
           <div className="tab-content">
             <div className="section-card">
               <div className="section-header">
                 <h3>Historia de la Enfermedad Actual</h3>
-                <button
-                  className={"btn-primary-small"}
-                  onClick={() => setEditingField(editingField === 'anamnesis' ? null : 'anamnesis')}
-                >
+                <button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'anamnesis' ? null : 'anamnesis')}>
                   {editingField === 'anamnesis' ? '✕ Cancelar' : ' Editar'}
                 </button>
               </div>
-
               {editingField === 'anamnesis' ? (
                 <div className="edit-form">
-                  <div className="form-group">
-                    <label>Enfermedad Actual</label>
-                    <textarea
-                      name="currentIllness"
-                      value={editData.currentIllness}
-                      onChange={handleEditChange}
-                      rows="4"
-                      className="input-field"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Duración de Síntomas</label>
-                    <input
-                      type="text"
-                      name="symptomDuration"
-                      value={editData.symptomDuration}
-                      onChange={handleEditChange}
-                      className="input-field"
-                      placeholder="Ej: 3 días"
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label>Severidad</label>
-                    <select
-                      name="symptomSeverity"
-                      value={editData.symptomSeverity}
-                      onChange={handleEditChange}
-                      className="input-field"
-                    >
-                      <option value="">Selecciona</option>
-                      <option value="leve">Leve</option>
-                      <option value="moderada">Moderada</option>
-                      <option value="severa">Severa</option>
-                    </select>
-                  </div>
-                  <button className="btn btn-primary" onClick={handleSaveAnamnesis}>
-                    ✓ Guardar y continuar
-                  </button>
+                  <div className="form-group"><label>Enfermedad Actual</label><textarea name="currentIllness" value={editData.currentIllness} onChange={handleEditChange} rows="4" className="input-field" /></div>
+                  <div className="form-group"><label>Duración de Síntomas</label><input type="text" name="symptomDuration" value={editData.symptomDuration} onChange={handleEditChange} className="input-field" placeholder="Ej: 3 días" /></div>
+                  <div className="form-group"><label>Severidad</label><select name="symptomSeverity" value={editData.symptomSeverity} onChange={handleEditChange} className="input-field"><option value="">Selecciona</option><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div>
+                  <button className="btn btn-primary" onClick={handleSaveAnamnesis}>✓ Guardar y continuar</button>
                 </div>
               ) : (
                 <div className="view-form">
-                  <p><strong>Enfermedad Actual:</strong></p>
-                  <p>{visit.anamnesis?.current_illness || 'No registrada'}</p>
-                  <p><strong>Duración:</strong></p>
-                  <p>{visit.anamnesis?.symptom_duration || '-'}</p>
-                  <p><strong>Severidad:</strong></p>
-                  <p>{visit.anamnesis?.symptom_severity || '-'}</p>
+                  <p><strong>Enfermedad Actual:</strong></p><p>{visit.anamnesis?.current_illness || 'No registrada'}</p>
+                  <p><strong>Duración:</strong></p><p>{visit.anamnesis?.symptom_duration || '-'}</p>
+                  <p><strong>Severidad:</strong></p><p>{visit.anamnesis?.symptom_severity || '-'}</p>
                 </div>
               )}
             </div>
           </div>
         )}
 
-        {/* VITAL SIGNS TAB */}
+        {/* Secciones VitalSigns, SystemReview, PhysicalExam - MANTENIDAS (resumidas aquí para brevedad, pero en tu archivo final deben estar completas como en el código anterior) */}
         {activeTab === 'vital-signs' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <div className="section-header">
-                <h3>Signos Vitales</h3>
-                <button
-                  className={"btn-primary-small"}
-                  onClick={() => setEditingField(editingField === 'vital-signs' ? null : 'vital-signs')}
-                >
-                  {editingField === 'vital-signs' ? '✕ Cancelar' : ' Editar'}
-                </button>
-              </div>
-
-              {editingField === 'vital-signs' ? (
-                <div className="edit-form">
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Peso (kg)</label>
-                      <input type="number" name="weight" value={editData.weight} onChange={handleEditChange} className="input-field" step="0.1" />
-                    </div>
-                    <div className="form-group">
-                      <label>Altura (cm)</label>
-                      <input type="number" name="height" value={editData.height} onChange={handleEditChange} className="input-field" />
-                    </div>
-                  </div>
-
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>P.A. Sistólica (mmHg)</label>
-                      <input type="number" name="systolicBp" value={editData.systolicBp} onChange={handleEditChange} className="input-field" />
-                    </div>
-                    <div className="form-group">
-                      <label>P.A. Diastólica (mmHg)</label>
-                      <input type="number" name="diastolicBp" value={editData.diastolicBp} onChange={handleEditChange} className="input-field" />
-                    </div>
-                  </div>
-
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Frecuencia Cardíaca (FC)</label>
-                      <input type="number" name="heartRate" value={editData.heartRate} onChange={handleEditChange} className="input-field" />
-                    </div>
-                    <div className="form-group">
-                      <label>Frecuencia Respiratoria (FR)</label>
-                      <input type="number" name="respiratoryRate" value={editData.respiratoryRate} onChange={handleEditChange} className="input-field" />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Temperatura (°C)</label>
-                    <input type="number" name="bodyTemperature" value={editData.bodyTemperature} onChange={handleEditChange} className="input-field" step="0.1" />
-                  </div>
-
-                  <button className="btn btn-primary" onClick={handleSaveVitalSigns}>
-                    ✓ Guardar y continuar
-                  </button>
-                </div>
-              ) : (
-                <div className="view-form vital-signs-grid">
-                  <div className="vital-item"><strong>Peso:</strong> {visit.vitalSigns?.weight || '-'} kg</div>
-                  <div className="vital-item"><strong>Altura:</strong> {visit.vitalSigns?.height || '-'} cm</div>
-                  <div className="vital-item"><strong>IMC:</strong> {visit.vitalSigns?.imc ? Number(visit.vitalSigns.imc).toFixed(2) : '-'}</div>
-                  <div className="vital-item"><strong>P.A.:</strong> {visit.vitalSigns?.systolic_bp || '-'}/{visit.vitalSigns?.diastolic_bp || '-'} mmHg</div>
-                  <div className="vital-item"><strong>F.C.:</strong> {visit.vitalSigns?.heart_rate || '-'} bpm</div>
-                  <div className="vital-item"><strong>F.R.:</strong> {visit.vitalSigns?.respiratory_rate || '-'} rpm</div>
-                  <div className="vital-item"><strong>Temperatura:</strong> {visit.vitalSigns?.body_temperature || '-'} °C</div>
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Signos Vitales</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'vital-signs' ? null : 'vital-signs')}>{editingField === 'vital-signs' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'vital-signs' ? (<div className="edit-form"><div className="form-row-2"><div className="form-group"><label>Peso (kg)</label><input type="number" name="weight" value={editData.weight} onChange={handleEditChange} className="input-field" step="0.1" /></div><div className="form-group"><label>Altura (cm)</label><input type="number" name="height" value={editData.height} onChange={handleEditChange} className="input-field" /></div></div><div className="form-row-2"><div className="form-group"><label>P.A. Sistólica (mmHg)</label><input type="number" name="systolicBp" value={editData.systolicBp} onChange={handleEditChange} className="input-field" /></div><div className="form-group"><label>P.A. Diastólica (mmHg)</label><input type="number" name="diastolicBp" value={editData.diastolicBp} onChange={handleEditChange} className="input-field" /></div></div><div className="form-row-2"><div className="form-group"><label>Frecuencia Cardíaca (FC)</label><input type="number" name="heartRate" value={editData.heartRate} onChange={handleEditChange} className="input-field" /></div><div className="form-group"><label>Frecuencia Respiratoria (FR)</label><input type="number" name="respiratoryRate" value={editData.respiratoryRate} onChange={handleEditChange} className="input-field" /></div></div><div className="form-group"><label>Temperatura (°C)</label><input type="number" name="bodyTemperature" value={editData.bodyTemperature} onChange={handleEditChange} className="input-field" step="0.1" /></div><button className="btn btn-primary" onClick={handleSaveVitalSigns}>✓ Guardar y continuar</button></div>) : (<div className="view-form vital-signs-grid"><div className="vital-item"><strong>Peso:</strong> {visit.vitalSigns?.weight || '-'} kg</div><div className="vital-item"><strong>Altura:</strong> {visit.vitalSigns?.height || '-'} cm</div><div className="vital-item"><strong>IMC:</strong> {visit.vitalSigns?.imc ? Number(visit.vitalSigns.imc).toFixed(2) : '-'}</div><div className="vital-item"><strong>P.A.:</strong> {visit.vitalSigns?.systolic_bp || '-'}/{visit.vitalSigns?.diastolic_bp || '-'} mmHg</div><div className="vital-item"><strong>F.C.:</strong> {visit.vitalSigns?.heart_rate || '-'} bpm</div><div className="vital-item"><strong>F.R.:</strong> {visit.vitalSigns?.respiratory_rate || '-'} rpm</div><div className="vital-item"><strong>Temperatura:</strong> {visit.vitalSigns?.body_temperature || '-'} °C</div></div>)}</div></div>
         )}
 
-        {/* REVISIÓN POR SISTEMAS TAB */}
         {activeTab === 'system-review' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <div className="section-header">
-                <h3>Revisión por Sistemas</h3>
-                <button
-                  className={"btn-primary-small"}
-                  onClick={() => setEditingField(editingField === 'system-review' ? null : 'system-review')}
-                >
-                  {editingField === 'system-review' ? '✕ Cancelar' : ' Editar'}
-                </button>
-              </div>
-
-              {editingField === 'system-review' ? (
-                <div className="edit-form">
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Cabeza y Cuello</label>
-                      <textarea name="headNeck" value={editData.headNeck} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                    <div className="form-group">
-                      <label>Oculares</label>
-                      <textarea name="ocular" value={editData.ocular} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                  </div>
-
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Oídos</label>
-                      <textarea name="ears" value={editData.ears} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                    <div className="form-group">
-                      <label>Tórax y Abdomen</label>
-                      <textarea name="thoraxAbdomen" value={editData.thoraxAbdomen} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                  </div>
-
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Respiratorio</label>
-                      <textarea name="respiratory" value={editData.respiratory} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                    <div className="form-group">
-                      <label>Cardiovascular</label>
-                      <textarea name="cardiovascular" value={editData.cardiovascular} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                  </div>
-
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Digestivo</label>
-                      <textarea name="digestive" value={editData.digestive} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                    <div className="form-group">
-                      <label>Genitourinario</label>
-                      <textarea name="genitourinary" value={editData.genitourinary} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                  </div>
-
-                  <div className="form-row-2">
-                    <div className="form-group">
-                      <label>Musculoesquelético</label>
-                      <textarea name="musculoskeletal" value={editData.musculoskeletal} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                    <div className="form-group">
-                      <label>Piel</label>
-                      <textarea name="skin" value={editData.skin} onChange={handleEditChange} className="input-field" rows="2" />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label>Nervioso</label>
-                    <textarea name="nervousSystem" value={editData.nervousSystem} onChange={handleEditChange} className="input-field" rows="2" />
-                  </div>
-
-                  <button className="btn btn-primary" onClick={handleSaveSystemReview}>
-                    ✓ Guardar y continuar
-                  </button>
-                </div>
-              ) : (
-                <div className="view-form">
-                  <div className="systems-grid">
-                    <div className="system-item"><strong>Cabeza/Cuello:</strong> {visit.systemReview?.head_neck || '-'}</div>
-                    <div className="system-item"><strong>Oculares:</strong> {visit.systemReview?.ocular || '-'}</div>
-                    <div className="system-item"><strong>Oídos:</strong> {visit.systemReview?.ears || '-'}</div>
-                    <div className="system-item"><strong>Tórax/Abdomen:</strong> {visit.systemReview?.thorax_abdomen || '-'}</div>
-                    <div className="system-item"><strong>Respiratorio:</strong> {visit.systemReview?.respiratory || '-'}</div>
-                    <div className="system-item"><strong>Cardiovascular:</strong> {visit.systemReview?.cardiovascular || '-'}</div>
-                    <div className="system-item"><strong>Digestivo:</strong> {visit.systemReview?.digestive || '-'}</div>
-                    <div className="system-item"><strong>Genitourinario:</strong> {visit.systemReview?.genitourinary || '-'}</div>
-                    <div className="system-item"><strong>Musculoesquelético:</strong> {visit.systemReview?.musculoskeletal || '-'}</div>
-                    <div className="system-item"><strong>Piel:</strong> {visit.systemReview?.skin || '-'}</div>
-                    <div className="system-item"><strong>Nervioso:</strong> {visit.systemReview?.nervous_system || '-'}</div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Revisión por Sistemas</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'system-review' ? null : 'system-review')}>{editingField === 'system-review' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'system-review' ? (<div className="edit-form"><div className="form-row-2"><div className="form-group"><label>Cabeza y Cuello</label><textarea name="headNeck" value={editData.headNeck} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Oculares</label><textarea name="ocular" value={editData.ocular} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Oídos</label><textarea name="ears" value={editData.ears} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Tórax y Abdomen</label><textarea name="thoraxAbdomen" value={editData.thoraxAbdomen} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Respiratorio</label><textarea name="respiratory" value={editData.respiratory} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Cardiovascular</label><textarea name="cardiovascular" value={editData.cardiovascular} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Digestivo</label><textarea name="digestive" value={editData.digestive} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Genitourinario</label><textarea name="genitourinary" value={editData.genitourinary} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Musculoesquelético</label><textarea name="musculoskeletal" value={editData.musculoskeletal} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Piel</label><textarea name="skin" value={editData.skin} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-group"><label>Nervioso</label><textarea name="nervousSystem" value={editData.nervousSystem} onChange={handleEditChange} className="input-field" rows="2" /></div><button className="btn btn-primary" onClick={handleSaveSystemReview}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><div className="systems-grid"><div className="system-item"><strong>Cabeza/Cuello:</strong> {visit.systemReview?.head_neck || '-'}</div><div className="system-item"><strong>Oculares:</strong> {visit.systemReview?.ocular || '-'}</div><div className="system-item"><strong>Oídos:</strong> {visit.systemReview?.ears || '-'}</div><div className="system-item"><strong>Tórax/Abdomen:</strong> {visit.systemReview?.thorax_abdomen || '-'}</div><div className="system-item"><strong>Respiratorio:</strong> {visit.systemReview?.respiratory || '-'}</div><div className="system-item"><strong>Cardiovascular:</strong> {visit.systemReview?.cardiovascular || '-'}</div><div className="system-item"><strong>Digestivo:</strong> {visit.systemReview?.digestive || '-'}</div><div className="system-item"><strong>Genitourinario:</strong> {visit.systemReview?.genitourinary || '-'}</div><div className="system-item"><strong>Musculoesquelético:</strong> {visit.systemReview?.musculoskeletal || '-'}</div><div className="system-item"><strong>Piel:</strong> {visit.systemReview?.skin || '-'}</div><div className="system-item"><strong>Nervioso:</strong> {visit.systemReview?.nervous_system || '-'}</div></div></div>)}</div></div>
         )}
 
-        {/* EXAMEN FÍSICO TAB */}
         {activeTab === 'physical-exam' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <div className="section-header">
-                <h3>Examen Físico Detallado</h3>
-                <button
-                  className={"btn-primary-small"}
-                  onClick={() => setEditingField(editingField === 'physical-exam' ? null : 'physical-exam')}
-                >
-                  {editingField === 'physical-exam' ? '✕ Cancelar' : ' Editar'}
-                </button>
-              </div>
-
-              {editingField === 'physical-exam' ? (
-                <div className="edit-form">
-                  <div className="form-group">
-                    <label>Estado General</label>
-                    <textarea name="generalAppearance" value={editData.generalAppearance} onChange={handleEditChange} className="input-field" rows="3" />
-                  </div>
-                  <div className="form-group">
-                    <label>Estado Mental</label>
-                    <textarea name="mentalStatus" value={editData.mentalStatus} onChange={handleEditChange} className="input-field" rows="3" />
-                  </div>
-                  <div className="form-group">
-                    <label>Hallazgos Detallados</label>
-                    <textarea name="detailedFindings" value={editData.detailedFindings} onChange={handleEditChange} className="input-field" rows="3" />
-                  </div>
-                  <div className="form-group">
-                    <label>Hallazgos Anormales</label>
-                    <textarea name="abnormalities" value={editData.abnormalities} onChange={handleEditChange} className="input-field" rows="3" />
-                  </div>
-                  <button className="btn btn-primary" onClick={handleSavePhysicalExam}>
-                    ✓ Guardar y continuar
-                  </button>
-                </div>
-              ) : (
-                <div className="view-form">
-                  <p><strong>Estado General:</strong></p>
-                  <p>{visit.physicalExam?.general_appearance || '-'}</p>
-                  <p><strong>Estado Mental:</strong></p>
-                  <p>{visit.physicalExam?.mental_status || '-'}</p>
-                  <p><strong>Hallazgos Detallados:</strong></p>
-                  <p>{visit.physicalExam?.detailed_findings || '-'}</p>
-                  <p><strong>Hallazgos Anormales:</strong></p>
-                  <p>{visit.physicalExam?.abnormalities || '-'}</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Examen Físico Detallado</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'physical-exam' ? null : 'physical-exam')}>{editingField === 'physical-exam' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'physical-exam' ? (<div className="edit-form"><div className="form-group"><label>Estado General</label><textarea name="generalAppearance" value={editData.generalAppearance} onChange={handleEditChange} className="input-field" rows="3" /></div><div className="form-group"><label>Estado Mental</label><textarea name="mentalStatus" value={editData.mentalStatus} onChange={handleEditChange} className="input-field" rows="3" /></div><div className="form-group"><label>Hallazgos Detallados</label><textarea name="detailedFindings" value={editData.detailedFindings} onChange={handleEditChange} className="input-field" rows="3" /></div><div className="form-group"><label>Hallazgos Anormales</label><textarea name="abnormalities" value={editData.abnormalities} onChange={handleEditChange} className="input-field" rows="3" /></div><button className="btn btn-primary" onClick={handleSavePhysicalExam}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p><strong>Estado General:</strong></p><p>{visit.physicalExam?.general_appearance || '-'}</p><p><strong>Estado Mental:</strong></p><p>{visit.physicalExam?.mental_status || '-'}</p><p><strong>Hallazgos Detallados:</strong></p><p>{visit.physicalExam?.detailed_findings || '-'}</p><p><strong>Hallazgos Anormales:</strong></p><p>{visit.physicalExam?.abnormalities || '-'}</p></div>)}</div></div>
         )}
 
-        {/* DIAGNOSES TAB */}
         {activeTab === 'diagnoses' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <div className="section-header">
-                <h3>Diagnósticos</h3>
-                <button
-                  className="btn-primary-small"
-                  onClick={() => setShowAddDiagnosis(true)}
-                >
-                  ➕ Agregar
-                </button>
-              </div>
-              {visit.diagnoses && visit.diagnoses.length > 0 ? (
-                <div className="items-list">
-                  {visit.diagnoses.map((diagnosis) => (
-                    <div key={diagnosis.id} className="item-card">
-                      <div className="item-header">
-                        <div>
-                          <p><strong>Código CIE10:</strong> {diagnosis.diagnosis_code_cie10}</p>
-                          <p><strong>Descripción:</strong> {diagnosis.diagnosis_description}</p>
-                          <p><strong>Tipo:</strong> {diagnosis.diagnosis_type}</p>
-                          <p><strong>Severidad:</strong> {diagnosis.severity || '-'}</p>
-                        </div>
-                        <div className="item-actions">
-                          <button
-                            className="btn-edit"
-                            onClick={() => handleEditDiagnosis(diagnosis)}
-                            title="Editar diagnóstico"
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            className="btn-delete"
-                            onClick={() => handleDeleteDiagnosis(diagnosis.id)}
-                            title="Eliminar diagnóstico"
-                          >
-                            🗑️ Eliminar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="no-data-message">No hay diagnósticos registrados</p>
-              )}
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Diagnósticos</h3><button className="btn-primary-small" onClick={() => setShowAddDiagnosis(true)}>➕ Agregar</button></div>{visit.diagnoses && visit.diagnoses.length > 0 ? (<div className="items-list">{visit.diagnoses.map((diagnosis) => (<div key={diagnosis.id} className="item-card"><div className="item-header"><div><p><strong>Código CIE10:</strong> {diagnosis.diagnosis_code_cie10}</p><p><strong>Descripción:</strong> {diagnosis.diagnosis_description}</p><p><strong>Tipo:</strong> {diagnosis.diagnosis_type}</p><p><strong>Severidad:</strong> {diagnosis.severity || '-'}</p></div><div className="item-actions"><button className="btn-edit" onClick={() => handleEditDiagnosis(diagnosis)} title="Editar diagnóstico">✏️ Editar</button><button className="btn-delete" onClick={() => handleDeleteDiagnosis(diagnosis.id)} title="Eliminar diagnóstico">🗑️ Eliminar</button></div></div></div>))}</div>) : (<p className="no-data-message">No hay diagnósticos registrados</p>)}</div></div>
         )}
 
-        {/* RECOMMENDATIONS TAB */}
         {activeTab === 'recommendations' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <div className="section-header">
-                <h3>Recomendaciones</h3>
-                <button
-                  className={"btn-primary-small"}
-                  onClick={() => setEditingField(editingField === 'recommendations' ? null : 'recommendations')}
-                >
-                  {editingField === 'recommendations' ? '✕ Cancelar' : ' Editar'}
-                </button>
-              </div>
-
-              {editingField === 'recommendations' ? (
-                <div className="edit-form">
-                  <div className="form-group">
-                    <label>Recomendaciones y Plan de Seguimiento</label>
-                    <textarea
-                      name="recommendations"
-                      value={editData.recommendations}
-                      onChange={handleEditChange}
-                      className="input-field"
-                      rows="6"
-                      placeholder="Describe las recomendaciones y plan de manejo..."
-                    />
-                  </div>
-                  <button className="btn btn-primary" onClick={handleSaveRecommendations}>
-                    ✓ Guardar y continuar
-                  </button>
-                </div>
-              ) : (
-                <div className="view-form">
-                  <p>{visit.followUp?.follow_up_reason || 'Sin recomendaciones registradas'}</p>
-                </div>
-              )}
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Recomendaciones</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'recommendations' ? null : 'recommendations')}>{editingField === 'recommendations' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'recommendations' ? (<div className="edit-form"><div className="form-group"><label>Recomendaciones y Plan de Seguimiento</label><textarea name="recommendations" value={editData.recommendations} onChange={handleEditChange} className="input-field" rows="6" placeholder="Describe las recomendaciones y plan de manejo..." /></div><button className="btn btn-primary" onClick={handleSaveRecommendations}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p>{visit.followUp?.follow_up_reason || 'Sin recomendaciones registradas'}</p></div>)}</div></div>
         )}
 
-        {/* TREATMENTS TAB */}
+        {/* ✅ AQUÍ ESTÁ EL BOTÓN DE REPETIR EN TREATMENTS */}
         {activeTab === 'treatments' && visit && (
           <div className="tab-content">
             <div className="section-card">
               <div className="section-header">
                 <h3>Medicamentos</h3>
                 <div className="header-buttons">
+                  <button 
+                    className="btn-secondary-small" 
+                    onClick={handleCopyLastPrescription}
+                    style={{marginRight: '10px', backgroundColor: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe'}}
+                    title="Copia los medicamentos de la última consulta de este paciente"
+                  >
+                    🔄 Repetir Última
+                  </button>
                   <button
                     className="btn-primary-small"
                     onClick={() => setShowAddTreatment(true)}
@@ -1001,61 +618,11 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ✅ CHECKLIST TAB */}
+        {/* ... CHECKLIST Y MODALES ... */}
         {activeTab === 'checklist' && visit && (
-          <div className="tab-content">
-            <div className="section-card">
-              <h3>📋 Checklist de Historia Clínica</h3>
-              <p className="checklist-subtitle">Verifica que todos los campos estén completos</p>
-
-              <div className="checklist-container">
-                <ul className="checklist-list">
-                  {[
-                    { id: 'anamnesis', label: 'Anamnesis', icon: '📝' },
-                    { id: 'vitalSigns', label: 'Signos Vitales', icon: '❤️' },
-                    { id: 'systemReview', label: 'Revisión Sistemas', icon: '🔍' },
-                    { id: 'physicalExam', label: 'Examen Físico', icon: '👨‍⚕️' },
-                    { id: 'diagnoses', label: 'Diagnósticos', icon: '📋' },
-                    { id: 'recommendations', label: 'Recomendaciones', icon: '💊' },
-                    { id: 'treatments', label: 'Medicamentos', icon: '🏥' }
-                  ].map((section) => {
-                    const status = getSectionStatus(section.id);
-                    const statusIcon = getStatusIcon(status);
-                    return (
-                      <li key={section.id} className="checklist-item">
-                        <div className="item-left">
-                          <span className="section-icon">{section.icon}</span>
-                          <span className="section-label">{section.label}</span>
-                        </div>
-                        <div 
-                          className={`status-badge status-${status}`}
-                          style={{ color: statusIcon.color }}
-                          title={statusIcon.label}
-                        >
-                          {statusIcon.icon}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-
-                {/* Botón Finalizar */}
-                <div className="checklist-button-container">
-                  <button
-                    className={`btn-finalize ${allSectionsComplete() ? 'btn-enabled' : 'btn-disabled'}`}
-                    onClick={handleFinalizeConsultation}
-                    disabled={!allSectionsComplete()}
-                    title={allSectionsComplete() ? 'Finalizar historia clínica' : 'Completa todos los campos primero'}
-                  >
-                    {allSectionsComplete() ? '✓ Finalizar Historia' : '⚠️ Completa los campos faltantes'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div className="tab-content"><div className="section-card"><h3>📋 Checklist de Historia Clínica</h3><p className="checklist-subtitle">Verifica que todos los campos estén completos</p><div className="checklist-container"><ul className="checklist-list">{[{ id: 'anamnesis', label: 'Anamnesis', icon: '📝' }, { id: 'vitalSigns', label: 'Signos Vitales', icon: '❤️' }, { id: 'systemReview', label: 'Revisión Sistemas', icon: '🔍' }, { id: 'physicalExam', label: 'Examen Físico', icon: '👨‍⚕️' }, { id: 'diagnoses', label: 'Diagnósticos', icon: '📋' }, { id: 'recommendations', label: 'Recomendaciones', icon: '💊' }, { id: 'treatments', label: 'Medicamentos', icon: '🏥' }].map((section) => { const status = getSectionStatus(section.id); const statusIcon = getStatusIcon(status); return (<li key={section.id} className="checklist-item"><div className="item-left"><span className="section-icon">{section.icon}</span><span className="section-label">{section.label}</span></div><div className={`status-badge status-${status}`} style={{ color: statusIcon.color }} title={statusIcon.label}>{statusIcon.icon}</div></li>); })}</ul><div className="checklist-button-container"><button className={`btn-finalize ${allSectionsComplete() ? 'btn-enabled' : 'btn-disabled'}`} onClick={handleFinalizeConsultation} disabled={!allSectionsComplete()} title={allSectionsComplete() ? 'Finalizar historia clínica' : 'Completa todos los campos primero'}>{allSectionsComplete() ? '✓ Finalizar Historia' : '⚠️ Completa los campos faltantes'}</button></div></div></div></div>
         )}
 
-        {/* MODALES - ✅ ACTUALIZADO CON PROPS PARA EDICIÓN */}
         {showAddDiagnosis && (
           <AddDiagnosis
             visitId={visitId}
@@ -1076,4 +643,4 @@ export default function VisitDetails() {
       </div>
     </div>
   );
-  }
+}
