@@ -171,17 +171,18 @@ export default function VisitSummary() {
     } catch (err) { alert('Error al generar PDF'); } finally { setGeneratingPDF(false); }
   };
 
-  // 💊 NUEVA FUNCIÓN: DESCARGAR SOLO RECETA
+ // 💊 FUNCIÓN CORREGIDA: DESCARGAR SOLO RECETA
   const downloadPrescription = async () => {
     if (!prescriptionRef.current) return;
     try {
       setGeneratingRecipe(true);
       const opt = {
-        margin: [15, 15, 15, 15], // Márgenes un poco más amplios para receta formal
+        margin: [10, 10, 10, 10], 
         filename: `Receta_${visit.patient?.full_name}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false }, // Mayor escala para texto nítido
-        jsPDF: { unit: 'mm', format: 'half-letter', orientation: 'portrait' } // Formato media carta (opcional) o 'a4'
+        html2canvas: { scale: 2, useCORS: true, logging: false }, 
+        // CAMBIO AQUÍ: Usamos 'letter' (Carta) en lugar de 'half-letter'
+        jsPDF: { unit: 'mm', format: 'letter', orientation: 'portrait' } 
       };
       await html2pdf().set(opt).from(prescriptionRef.current).save();
     } catch (err) { 
