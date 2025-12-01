@@ -21,8 +21,9 @@ router.post('/login', async (req, res) => {
     }
 
     console.log(`[LOGIN] 2. Buscando usuario en BD...`);
+    // ✅ MODIFICADO: Agregué full_name y email al SELECT
     const result = await query(
-      'SELECT id, tenant_id, password_hash, role FROM users WHERE username = $1',
+      'SELECT id, tenant_id, password_hash, role, full_name, email FROM users WHERE username = $1',
       [username]
     );
 
@@ -38,14 +39,12 @@ router.post('/login', async (req, res) => {
     console.log(`[LOGIN]    - ID: ${user.id}`);
     console.log(`[LOGIN]    - Role: ${user.role}`);
     console.log(`[LOGIN]    - TenantID: ${user.tenant_id}`);
-    console.log(`[LOGIN]    - Password hash existe: ${user.password_hash ? 'SÍ' : 'NO'}`);
 
     console.log(`[LOGIN] 5. Comparando passwords...`);
     const passwordValid = await comparePasswords(password, user.password_hash);
-    console.log(`[LOGIN] 6. Resultado comparación: ${passwordValid ? '✓ VÁLIDA' : '✗ INVÁLIDA'}`);
-
+    
     if (!passwordValid) {
-      console.log(`[LOGIN] ✗ ERROR: Password INCORRECTO para usuario "${username}"`);
+      console.log(`[LOGIN] ✗ ERROR: Password INCORRECTO`);
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
@@ -54,20 +53,28 @@ router.post('/login', async (req, res) => {
     const isSuperAdmin = user.role === 'admin' && user.tenant_id === null;
 
     console.log(`[LOGIN] ✓ LOGIN EXITOSO para usuario: "${username}"`);
-    console.log(`[LOGIN] ✓ Token generado: ${token.substring(0, 50)}...`);
-    console.log(`[LOGIN] ✓ IsSuperAdmin: ${isSuperAdmin}`);
-    console.log(`[LOGIN] === FIN LOGIN ===\n`);
+    console.log(`[LOGIN] ✓ Rol enviado: ${user.role}`);
 
+    // ✅ MODIFICADO: Ahora enviamos todos los datos que el Frontend necesita
     res.json({
       success: true,
       token,
       userId: user.id,
       clientId: user.tenant_id,
-      isSuperAdmin
+      isSuperAdmin,
+      role: user.role, // ¡ESTO FALTABA!
+      user: {          // Enviamos objeto completo para guardar en localStorage
+        id: user.id,
+        username: username,
+        full_name: user.full_name,
+        email: user.email,
+        role: user.role,
+        tenant_id: user.tenant_id,
+        isSuperAdmin
+      }
     });
   } catch (error) {
     console.error(`[LOGIN] ✗ ERROR CRÍTICO:`, error);
-    console.error(`[LOGIN] Stack:`, error.stack);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });
@@ -117,14 +124,11 @@ router.get('/me', authenticateToken, async (req, res) => {
 });
 
 // ============================================
-// LOGOUT (opcional - client-side)
+// LOGOUT
 // ============================================
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
-    res.json({
-      success: true,
-      message: 'Sesión cerrada exitosamente'
-    });
+    res.json({ success: true, message: 'Sesión cerrada exitosamente' });
   } catch (error) {
     console.error('Error en logout:', error);
     res.status(500).json({ error: 'Error en el servidor' });
@@ -132,72 +136,27 @@ router.post('/logout', authenticateToken, async (req, res) => {
 });
 
 // ============================================
-// 🆕 RESET PASSWORD - SUPER-ADMIN ONLY
+// RESET PASSWORD (SUPER-ADMIN)
 // ============================================
 router.post('/reset-password', authenticateToken, async (req, res) => {
   try {
     const { userId, newPassword } = req.body;
 
-    if (!userId || !newPassword) {
-      return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
-    }
+    if (!userId || !newPassword) return res.status(400).json({ error: 'Faltan datos' });
+    if (newPassword.length < 8) return res.status(400).json({ error: 'Mínimo 8 caracteres' });
 
-    if (newPassword.length < 8) {
-      return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres' });
-    }
-
-    // Verificar que quien ejecuta es SUPER-ADMIN
-    const adminResult = await query(
-      'SELECT id, role, tenant_id FROM users WHERE id = $1',
-      [req.userId]
-    );
-
-    if (adminResult.rows.length === 0) {
-      return res.status(403).json({ error: 'Admin no encontrado' });
-    }
-
+    const adminResult = await query('SELECT role, tenant_id FROM users WHERE id = $1', [req.userId]);
+    if (adminResult.rows.length === 0) return res.status(403).json({ error: 'Admin no encontrado' });
+    
     const admin = adminResult.rows[0];
-    const isSuperAdmin = admin.role === 'admin' && admin.tenant_id === null;
-
-    if (!isSuperAdmin) {
-      console.warn(`❌ [RESET-PASSWORD] Intento no autorizado desde usuario: ${req.userId}`);
+    if (admin.role !== 'admin' || admin.tenant_id !== null) {
       return res.status(403).json({ error: 'Solo SUPER-ADMIN puede resetear contraseñas' });
     }
 
-    // Verificar que el usuario a resetear existe
-    const targetUserResult = await query(
-      'SELECT id, username, email, full_name FROM users WHERE id = $1',
-      [userId]
-    );
-
-    if (targetUserResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    const targetUser = targetUserResult.rows[0];
-
-    // Hashear nueva contraseña
     const hashedPassword = await hashPassword(newPassword);
+    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashedPassword, userId]);
 
-    // Actualizar contraseña en base de datos
-    await query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
-      [hashedPassword, userId]
-    );
-
-    console.log(`✅ [RESET-PASSWORD] Contraseña reseteada para usuario: ${targetUser.username}`);
-
-    res.json({
-      success: true,
-      message: `Contraseña reseteada para ${targetUser.full_name}`,
-      user: {
-        id: targetUser.id,
-        username: targetUser.username,
-        email: targetUser.email,
-        full_name: targetUser.full_name
-      }
-    });
-
+    res.json({ success: true, message: 'Contraseña reseteada exitosamente' });
   } catch (error) {
     console.error('Error en reset-password:', error);
     res.status(500).json({ error: 'Error en el servidor' });
