@@ -12,6 +12,7 @@ import clientsRoutes from './routes/clients.routes.js';
 import invitationsRoutes from './routes/invitations.routes.js';
 import auditRoutes from './routes/audit.routes.js';
 import usersRoutes from './routes/users.routes.js';
+import kitsRoutes from './routes/kits.routes.js';
 
 dotenv.config();
 
@@ -68,6 +69,7 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/invitations', invitationsRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/kits', kitsRoutes);
 
 // ERROR 404
 app.use((req, res) => {

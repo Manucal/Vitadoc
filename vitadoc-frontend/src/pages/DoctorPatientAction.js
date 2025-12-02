@@ -49,7 +49,7 @@ export default function DoctorPatientAction() {
                 onClick={() => navigate('/tenant-users')}
                 style={{ backgroundColor: '#7c3aed', color: 'white', marginBottom: '15px' }}
               >
-                👥 Gestionar Equipo
+                Gestionar Equipo
               </button>
             )}
 
