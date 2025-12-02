@@ -328,3 +328,18 @@ CREATE TABLE IF NOT EXISTS user_specializations (
 );
 
 CREATE INDEX IF NOT EXISTS idx_specializations_user ON user_specializations(user_id);
+
+-- ============================================
+-- TABLA TREATMENT_KITS (Kits de Recetas)
+-- ============================================
+CREATE TABLE IF NOT EXISTS treatment_kits (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  medicines JSONB NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Índice para que las búsquedas sean rápidas
+CREATE INDEX IF NOT EXISTS idx_kits_user ON treatment_kits(user_id);
