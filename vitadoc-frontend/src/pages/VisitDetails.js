@@ -3,8 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import AddDiagnosis from './AddDiagnosis';
 import AddTreatment from './AddTreatment';
-import DeleteConfirmModal from '../components/DeleteConfirmModal'; // Puedes mantenerlo o quitarlo si ya no lo usas
-import ConfirmModal from '../components/ConfirmModal'; // ✅ IMPORTAMOS EL NUEVO MODAL
+import DeleteConfirmModal from '../components/DeleteConfirmModal';
+import ConfirmModal from '../components/ConfirmModal';
 import { getNextTabAfterSave, TAB_SEQUENCE } from '../config/tabSequence-config';
 import { validateVitalSigns } from '../utils/visitDetailsHelpers';
 import '../styles/VisitDetails.css';
@@ -25,12 +25,17 @@ export default function VisitDetails() {
   const [editingDiagnosis, setEditingDiagnosis] = useState(null);
   const [editingTreatment, setEditingTreatment] = useState(null);
 
-  // ✅ ESTADO PARA EL MODAL DE CONFIRMACIÓN
+  // ✅ ESTADOS PARA KITS DE TRATAMIENTO (NUEVO)
+  const [kits, setKits] = useState([]);
+  const [kitName, setKitName] = useState('');
+  const [showSaveKitModal, setShowSaveKitModal] = useState(false);
+
+  // Estado para el modal de confirmación
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
     title: '',
     message: '',
-    action: null, // La función a ejecutar si dice "Sí"
+    action: null,
     isDanger: false
   });
 
@@ -78,7 +83,99 @@ export default function VisitDetails() {
       setLoading(false);
       setActiveTab('new-consultation');
     }
+    // Cargar los kits al iniciar
+    fetchKits();
   }, [visitId]);
+
+  // --- LÓGICA DE KITS (NUEVO) ---
+  const fetchKits = async () => {
+    try {
+      const response = await api.get('/kits', {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      setKits(response.data);
+    } catch (err) {
+      console.error("Error cargando kits:", err);
+    }
+  };
+
+  const handleSaveKit = async () => {
+    if (!kitName.trim()) return alert("Por favor, ponle un nombre al Kit.");
+    if (!visit.treatments || visit.treatments.length === 0) return alert("No hay medicamentos en esta receta para guardar.");
+
+    try {
+      await api.post('/kits', {
+        name: kitName,
+        medicines: visit.treatments // Guardamos la lista actual
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      
+      alert(`✅ Kit "${kitName}" guardado correctamente.`);
+      setKitName('');
+      setShowSaveKitModal(false);
+      fetchKits(); // Recargar la lista
+    } catch (err) {
+      console.error(err);
+      alert("Error al guardar el kit.");
+    }
+  };
+
+  const handleApplyKit = async (kitId) => {
+    const selectedKit = kits.find(k => k.id === kitId);
+    if (!selectedKit) return;
+
+    if (!window.confirm(`¿Deseas agregar los medicamentos del kit "${selectedKit.name}" a esta consulta?`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Recorremos los medicamentos del kit y los agregamos uno por uno
+      // Usamos Promise.all para que sea rápido (en paralelo)
+      const promises = selectedKit.medicines.map(med => {
+        // Mapeamos los campos por si el backend espera camelCase pero la BD devuelve snake_case
+        const payload = {
+          medicationName: med.medication_name || med.medicationName,
+          dosage: med.dosage,
+          frequency: med.frequency,
+          duration: med.duration,
+          route: med.route,
+          quantity: med.quantity,
+          instructions: med.instructions
+        };
+        
+        return api.post(`/medical-visits/${visitId}/treatments`, payload, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+        });
+      });
+
+      await Promise.all(promises);
+      
+      alert("✅ Medicamentos del kit agregados.");
+      fetchVisitDetails(); // Recargar para ver los cambios
+    } catch (err) {
+      console.error(err);
+      alert("Hubo un error al aplicar algunos medicamentos del kit.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleDeleteKit = async (kitId, e) => {
+    e.stopPropagation(); // Evitar que se active el select si fuera un dropdown custom
+    if(!window.confirm("¿Eliminar este kit de tus favoritos?")) return;
+    
+    try {
+        await api.delete(`/kits/${kitId}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        fetchKits();
+    } catch (err) {
+        alert("Error al eliminar kit");
+    }
+  };
+  // -----------------------------
 
   const fetchVisitDetails = async () => {
     try {
@@ -124,7 +221,6 @@ export default function VisitDetails() {
     }
   };
 
-  // ✅ NUEVO: Lógica del Modal para Confirmar Acción
   const onConfirmAction = () => {
     if (confirmConfig.action) {
       confirmConfig.action();
@@ -132,7 +228,6 @@ export default function VisitDetails() {
     setConfirmConfig({ ...confirmConfig, isOpen: false });
   };
 
-  // 1. REPETIR RECETA (Con Modal)
   const handleCopyLastPrescription = () => {
     setConfirmConfig({
       isOpen: true,
@@ -160,13 +255,11 @@ export default function VisitDetails() {
     }
   };
 
-  // EDITAR DIAGNÓSTICO
   const handleEditDiagnosis = (diagnosis) => {
     setEditingDiagnosis(diagnosis);
     setShowAddDiagnosis(true);
   };
 
-  // 2. ELIMINAR DIAGNÓSTICO (Con Modal)
   const handleDeleteDiagnosis = (diagnosisId) => {
     setConfirmConfig({
       isOpen: true,
@@ -195,13 +288,11 @@ export default function VisitDetails() {
     }
   };
 
-  // EDITAR TRATAMIENTO
   const handleEditTreatment = (treatment) => {
     setEditingTreatment(treatment);
     setShowAddTreatment(true);
   };
 
-  // 3. ELIMINAR TRATAMIENTO (Con Modal)
   const handleDeleteTreatment = (treatmentId) => {
     setConfirmConfig({
       isOpen: true,
@@ -572,6 +663,7 @@ export default function VisitDetails() {
           <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Recomendaciones</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'recommendations' ? null : 'recommendations')}>{editingField === 'recommendations' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'recommendations' ? (<div className="edit-form"><div className="form-group"><label>Recomendaciones y Plan de Seguimiento</label><textarea name="recommendations" value={editData.recommendations} onChange={handleEditChange} className="input-field" rows="6" placeholder="Describe las recomendaciones y plan de manejo..." /></div><button className="btn btn-primary" onClick={handleSaveRecommendations}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p>{visit.followUp?.follow_up_reason || 'Sin recomendaciones registradas'}</p></div>)}</div></div>
         )}
 
+        {/* ✅ PESTAÑA MEDICAMENTOS MODIFICADA CON KITS */}
         {activeTab === 'treatments' && visit && (
           <div className="tab-content">
             <div className="section-card">
@@ -582,7 +674,6 @@ export default function VisitDetails() {
                     className="btn-secondary-small" 
                     onClick={handleCopyLastPrescription}
                     style={{marginRight: '10px', backgroundColor: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe'}}
-                    title="Copia los medicamentos de la última consulta de este paciente"
                   >
                     🔄 Repetir Última
                   </button>
@@ -594,6 +685,57 @@ export default function VisitDetails() {
                   </button>
                 </div>
               </div>
+
+              {/* BARRA DE HERRAMIENTAS DE KITS */}
+              <div className="kit-toolbar" style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                     <label style={{display:'block', fontSize:'0.85rem', color:'#666', marginBottom:'4px'}}>⚡ Kits Rápidos:</label>
+                     <select 
+                        className="input-field" 
+                        style={{width:'100%', margin:0}}
+                        onChange={(e) => {
+                           if(e.target.value) handleApplyKit(e.target.value);
+                           e.target.value = ""; 
+                        }}
+                     >
+                        <option value="">-- Seleccionar un Kit guardado --</option>
+                        {kits.map(kit => (
+                           <option key={kit.id} value={kit.id}>{kit.name} ({kit.medicines?.length || 0} meds)</option>
+                        ))}
+                     </select>
+                  </div>
+                  
+                  <div style={{ marginTop: '20px' }}>
+                    <button 
+                        className="btn-secondary-small"
+                        onClick={() => setShowSaveKitModal(true)}
+                        disabled={!visit.treatments || visit.treatments.length === 0}
+                        title="Guarda los medicamentos actuales como un nuevo Kit"
+                    >
+                        💾 Guardar como Kit
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Rápido para Guardar Kit */}
+                {showSaveKitModal && (
+                   <div style={{ marginTop: '10px', display:'flex', gap:'5px', alignItems:'center', background:'white', padding:'10px', border:'1px solid #ddd', borderRadius:'6px' }}>
+                      <input 
+                         type="text" 
+                         placeholder="Nombre del Kit (Ej: Gripa Adulto)" 
+                         value={kitName} 
+                         onChange={e => setKitName(e.target.value)}
+                         className="input-field"
+                         style={{margin:0, flex:1}}
+                         autoFocus
+                      />
+                      <button className="btn-primary-small" onClick={handleSaveKit}>Guardar</button>
+                      <button className="btn-secondary-small" onClick={() => setShowSaveKitModal(false)}>✕</button>
+                   </div>
+                )}
+              </div>
+
               {visit.treatments && visit.treatments.length > 0 ? (
                 <div className="items-list">
                   {visit.treatments.map((treatment) => (
@@ -609,20 +751,8 @@ export default function VisitDetails() {
                           <p><strong>Instrucciones:</strong> {treatment.instructions || '-'}</p>
                         </div>
                         <div className="item-actions">
-                          <button
-                            className="btn-edit"
-                            onClick={() => handleEditTreatment(treatment)}
-                            title="Editar medicamento"
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            className="btn-delete"
-                            onClick={() => handleDeleteTreatment(treatment.id)}
-                            title="Eliminar medicamento"
-                          >
-                            🗑️ Eliminar
-                          </button>
+                          <button className="btn-edit" onClick={() => handleEditTreatment(treatment)} title="Editar">✏️</button>
+                          <button className="btn-delete" onClick={() => handleDeleteTreatment(treatment.id)} title="Eliminar">🗑️</button>
                         </div>
                       </div>
                     </div>
