@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { pool } from '../config/database.js'; // Usamos tu conexión existente
-import authenticateToken from '../middleware/auth.js'; // Tu seguridad actual
+import { authenticateToken } from '../middleware/auth.js';
 
 const router = Router();
 
