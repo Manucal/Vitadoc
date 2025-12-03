@@ -1,10 +1,8 @@
 import axios from 'axios';
 
-
-// ✅ CORRECTO: URL directa (sin process.env que causa problemas)
+// ✅ URL del Backend
 const API_BASE_URL = 'https://vitadoc-backend.onrender.com';
 
-// ⚠️ IMPORTANTE: Agregar /api al baseURL
 const api = axios.create({
   baseURL: `${API_BASE_URL}/api`,
   headers: {
@@ -21,50 +19,47 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// ✅ INTERCEPTOR RESPONSE: Manejar errores globalmente
+// ✅ INTERCEPTOR RESPONSE: Manejo inteligente de errores
 api.interceptors.response.use(
   (response) => {
-    // ✅ Respuesta exitosa
     return response;
   },
   (error) => {
-    // ❌ Error en la respuesta
-    
     if (!error.response) {
-      // Error de red (sin respuesta del servidor)
       console.error('❌ Error de conexión:', error.message);
       alert('⚠️ Error de conexión. Verifica tu internet.');
       return Promise.reject(error);
     }
 
     const status = error.response.status;
+    const originalRequestUrl = error.config.url; // 👈 Capturamos qué URL falló
 
+    // 1️⃣ MANEJO DEL ERROR 401 (No autorizado)
     if (status === 401) {
-      // Token expiró o inválido
-      console.warn('⚠️ Sesión expirado (401)');
+      // 🛑 EXCEPCIÓN IMPORTANTE: 
+      // Si el error viene del LOGIN, NO redireccionar. Deja que el usuario vea el mensaje "Contraseña incorrecta".
+      if (originalRequestUrl && originalRequestUrl.includes('/login')) {
+        return Promise.reject(error);
+      }
+
+      // Si el error 401 ocurre en CUALQUIER OTRA PARTE (sesión vencida real)
+      console.warn('⚠️ Sesión expirada (401). Redirigiendo al inicio...');
       localStorage.removeItem('authToken');
-      window.location.href = '/login';
+      
+      // ✅ CORRECCIÓN: Redirigir a una ruta que SÍ existe
+      window.location.href = '/doctor-type-selection'; 
       return Promise.reject(error);
     }
 
+    // 2️⃣ MANEJO DE OTROS ERRORES
     if (status === 403) {
-      // Acceso denegado
       console.error('❌ Acceso denegado (403)');
       alert('❌ No tienes permiso para realizar esta acción');
-      return Promise.reject(error);
     }
 
     if (status >= 500) {
-      // Error del servidor
       console.error(`❌ Error servidor (${status}):`, error.response.data);
       alert('❌ Error en el servidor. Intenta más tarde.');
-      return Promise.reject(error);
-    }
-
-    if (status >= 400) {
-      // Error del cliente (400, 404, etc)
-      console.error(`❌ Error (${status}):`, error.response.data);
-      return Promise.reject(error);
     }
 
     return Promise.reject(error);
