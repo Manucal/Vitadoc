@@ -17,7 +17,11 @@ export default function VisitDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('new-consultation');
-  const [editingField, setEditingField] = useState(null);
+  
+  // NOTA: editingField ya no se usa para bloquear pestañas, pero lo mantenemos 
+  // por si quieres usarlo en componentes futuros, aunque en este flujo "Always Edit" no es necesario.
+  const [editingField, setEditingField] = useState(null); 
+  
   const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
 
@@ -29,7 +33,6 @@ export default function VisitDetails() {
   const [kits, setKits] = useState([]);
   const [kitName, setKitName] = useState('');
   const [showSaveKitModal, setShowSaveKitModal] = useState(false);
-  // ✅ NUEVO: Estado para abrir la ventana de borrar kits
   const [showManageKitsModal, setShowManageKitsModal] = useState(false);
 
   // Estado para el modal de confirmación
@@ -168,7 +171,6 @@ export default function VisitDetails() {
     }
   };
   
-  // ✅ LÓGICA DE ELIMINAR KIT (NUEVO)
   const confirmDeleteKit = (kitId) => {
     setConfirmConfig({
       isOpen: true,
@@ -187,7 +189,7 @@ export default function VisitDetails() {
           title: 'Kit Eliminado',
           message: 'El kit ha sido eliminado de tu lista correctamente.'
         });
-        fetchKits(); // Recargar la lista
+        fetchKits(); 
     } catch (err) {
         alert("Error al eliminar kit");
     }
@@ -200,6 +202,7 @@ export default function VisitDetails() {
       const response = await api.get(`/medical-visits/${visitId}/details`);
       if (response.data.success) {
         setVisit(response.data.visit);
+        // Llenamos el formulario con los datos existentes
         setEditData({
           currentIllness: response.data.visit.anamnesis?.current_illness || '',
           symptomDuration: response.data.visit.anamnesis?.symptom_duration || '',
@@ -431,11 +434,12 @@ export default function VisitDetails() {
     const nextTabId = getNextTabAfterSave(currentTabId);
     if (nextTabId) {
       setActiveTab(nextTabId);
-      setEditingField(null);
+      setEditingField(null); // Esto ya no es necesario pero no estorba
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
+  // --- FUNCIONES DE GUARDADO (Ahora guardan y pasan a la siguiente pestaña sin cerrar nada) ---
   const handleSaveAnamnesis = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/anamnesis`, {
@@ -443,9 +447,8 @@ export default function VisitDetails() {
         symptomDuration: editData.symptomDuration,
         symptomSeverity: editData.symptomSeverity
       });
-      setEditingField(null);
       fetchVisitDetails();
-      navigateToNextTab('anamnesis');
+      navigateToNextTab('anamnesis'); // Guarda y salta a la siguiente
     } catch (err) { alert('Error al guardar: ' + err.response?.data?.error); }
   };
 
@@ -475,7 +478,6 @@ export default function VisitDetails() {
         respiratoryRate: parseInt(editData.respiratoryRate),
         bodyTemperature: parseFloat(editData.bodyTemperature)
       });
-      setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('vital-signs');
     } catch (err) { alert('Error al guardar.'); }
@@ -484,7 +486,6 @@ export default function VisitDetails() {
   const handleSaveSystemReview = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/system-review`, { ...editData });
-      setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('system-review');
     } catch (err) { alert('Error al guardar.'); }
@@ -493,7 +494,6 @@ export default function VisitDetails() {
   const handleSavePhysicalExam = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/physical-exam`, { ...editData });
-      setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('physical-exam');
     } catch (err) { alert('Error al guardar.'); }
@@ -502,7 +502,6 @@ export default function VisitDetails() {
   const handleSaveRecommendations = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/follow-up`, { followUpReason: editData.recommendations });
-      setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('recommendations');
     } catch (err) { alert('Error al guardar.'); }
@@ -569,21 +568,76 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* --- SECCIONES CLÍNICAS (IDÉNTICAS AL ORIGINAL) --- */}
+        {/* --- PESTAÑAS SIEMPRE EDITABLES (SIN BOTÓN EDITAR NI MODO LECTURA) --- */}
+        
         {activeTab === 'anamnesis' && visit && (
-          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Historia de la Enfermedad Actual</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'anamnesis' ? null : 'anamnesis')}>{editingField === 'anamnesis' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'anamnesis' ? (<div className="edit-form"><div className="form-group"><label>Enfermedad Actual</label><textarea name="currentIllness" value={editData.currentIllness} onChange={handleEditChange} rows="4" className="input-field" /></div><div className="form-group"><label>Duración de Síntomas</label><input type="text" name="symptomDuration" value={editData.symptomDuration} onChange={handleEditChange} className="input-field" placeholder="Ej: 3 días" /></div><div className="form-group"><label>Severidad</label><select name="symptomSeverity" value={editData.symptomSeverity} onChange={handleEditChange} className="input-field"><option value="">Selecciona</option><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div><button className="btn btn-primary" onClick={handleSaveAnamnesis}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p><strong>Enfermedad Actual:</strong></p><p>{visit.anamnesis?.current_illness || 'No registrada'}</p></div>)}</div></div>
+          <div className="tab-content">
+            <div className="section-card">
+              <div className="section-header"><h3>Historia de la Enfermedad Actual</h3></div>
+              <div className="edit-form">
+                <div className="form-group"><label>Enfermedad Actual</label><textarea name="currentIllness" value={editData.currentIllness} onChange={handleEditChange} rows="4" className="input-field" placeholder="Escribe aquí..." /></div>
+                <div className="form-group"><label>Duración de Síntomas</label><input type="text" name="symptomDuration" value={editData.symptomDuration} onChange={handleEditChange} className="input-field" placeholder="Ej: 3 días" /></div>
+                <div className="form-group"><label>Severidad</label><select name="symptomSeverity" value={editData.symptomSeverity} onChange={handleEditChange} className="input-field"><option value="">Selecciona</option><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div>
+                <button className="btn btn-primary" onClick={handleSaveAnamnesis}>✓ Guardar y continuar</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'vital-signs' && visit && (
-          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Signos Vitales</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'vital-signs' ? null : 'vital-signs')}>{editingField === 'vital-signs' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'vital-signs' ? (<div className="edit-form"><div className="form-row-2"><div className="form-group"><label>Peso (kg)</label><input type="number" name="weight" value={editData.weight} onChange={handleEditChange} className="input-field" step="0.1" /></div><div className="form-group"><label>Altura (cm)</label><input type="number" name="height" value={editData.height} onChange={handleEditChange} className="input-field" /></div></div><div className="form-row-2"><div className="form-group"><label>P.A. Sistólica (mmHg)</label><input type="number" name="systolicBp" value={editData.systolicBp} onChange={handleEditChange} className="input-field" /></div><div className="form-group"><label>P.A. Diastólica (mmHg)</label><input type="number" name="diastolicBp" value={editData.diastolicBp} onChange={handleEditChange} className="input-field" /></div></div><div className="form-row-2"><div className="form-group"><label>Frecuencia Cardíaca (FC)</label><input type="number" name="heartRate" value={editData.heartRate} onChange={handleEditChange} className="input-field" /></div><div className="form-group"><label>Frecuencia Respiratoria (FR)</label><input type="number" name="respiratoryRate" value={editData.respiratoryRate} onChange={handleEditChange} className="input-field" /></div></div><div className="form-group"><label>Temperatura (°C)</label><input type="number" name="bodyTemperature" value={editData.bodyTemperature} onChange={handleEditChange} className="input-field" step="0.1" /></div><button className="btn btn-primary" onClick={handleSaveVitalSigns}>✓ Guardar y continuar</button></div>) : (<div className="view-form vital-signs-grid"><div className="vital-item"><strong>Peso:</strong> {visit.vitalSigns?.weight || '-'} kg</div><div className="vital-item"><strong>Altura:</strong> {visit.vitalSigns?.height || '-'} cm</div><div className="vital-item"><strong>IMC:</strong> {visit.vitalSigns?.imc ? Number(visit.vitalSigns.imc).toFixed(2) : '-'}</div><div className="vital-item"><strong>P.A.:</strong> {visit.vitalSigns?.systolic_bp || '-'}/{visit.vitalSigns?.diastolic_bp || '-'} mmHg</div><div className="vital-item"><strong>F.C.:</strong> {visit.vitalSigns?.heart_rate || '-'} bpm</div><div className="vital-item"><strong>F.R.:</strong> {visit.vitalSigns?.respiratory_rate || '-'} rpm</div><div className="vital-item"><strong>Temperatura:</strong> {visit.vitalSigns?.body_temperature || '-'} °C</div></div>)}</div></div>
+          <div className="tab-content">
+            <div className="section-card">
+              <div className="section-header"><h3>Signos Vitales</h3></div>
+              <div className="edit-form">
+                <div className="form-row-2">
+                    <div className="form-group"><label>Peso (kg)</label><input type="number" name="weight" value={editData.weight} onChange={handleEditChange} className="input-field" step="0.1" /></div>
+                    <div className="form-group"><label>Altura (cm)</label><input type="number" name="height" value={editData.height} onChange={handleEditChange} className="input-field" /></div>
+                </div>
+                <div className="form-row-2">
+                    <div className="form-group"><label>P.A. Sistólica (mmHg)</label><input type="number" name="systolicBp" value={editData.systolicBp} onChange={handleEditChange} className="input-field" /></div>
+                    <div className="form-group"><label>P.A. Diastólica (mmHg)</label><input type="number" name="diastolicBp" value={editData.diastolicBp} onChange={handleEditChange} className="input-field" /></div>
+                </div>
+                <div className="form-row-2">
+                    <div className="form-group"><label>Frecuencia Cardíaca (FC)</label><input type="number" name="heartRate" value={editData.heartRate} onChange={handleEditChange} className="input-field" /></div>
+                    <div className="form-group"><label>Frecuencia Respiratoria (FR)</label><input type="number" name="respiratoryRate" value={editData.respiratoryRate} onChange={handleEditChange} className="input-field" /></div>
+                </div>
+                <div className="form-group"><label>Temperatura (°C)</label><input type="number" name="bodyTemperature" value={editData.bodyTemperature} onChange={handleEditChange} className="input-field" step="0.1" /></div>
+                <button className="btn btn-primary" onClick={handleSaveVitalSigns}>✓ Guardar y continuar</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'system-review' && visit && (
-          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Revisión por Sistemas</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'system-review' ? null : 'system-review')}>{editingField === 'system-review' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'system-review' ? (<div className="edit-form"><div className="form-row-2"><div className="form-group"><label>Cabeza y Cuello</label><textarea name="headNeck" value={editData.headNeck} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Oculares</label><textarea name="ocular" value={editData.ocular} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Oídos</label><textarea name="ears" value={editData.ears} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Tórax y Abdomen</label><textarea name="thoraxAbdomen" value={editData.thoraxAbdomen} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Respiratorio</label><textarea name="respiratory" value={editData.respiratory} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Cardiovascular</label><textarea name="cardiovascular" value={editData.cardiovascular} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Digestivo</label><textarea name="digestive" value={editData.digestive} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Genitourinario</label><textarea name="genitourinary" value={editData.genitourinary} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-row-2"><div className="form-group"><label>Musculoesquelético</label><textarea name="musculoskeletal" value={editData.musculoskeletal} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Piel</label><textarea name="skin" value={editData.skin} onChange={handleEditChange} className="input-field" rows="2" /></div></div><div className="form-group"><label>Nervioso</label><textarea name="nervousSystem" value={editData.nervousSystem} onChange={handleEditChange} className="input-field" rows="2" /></div><button className="btn btn-primary" onClick={handleSaveSystemReview}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><div className="systems-grid"><div className="system-item"><strong>Cabeza/Cuello:</strong> {visit.systemReview?.head_neck || '-'}</div><div className="system-item"><strong>Oculares:</strong> {visit.systemReview?.ocular || '-'}</div><div className="system-item"><strong>Oídos:</strong> {visit.systemReview?.ears || '-'}</div><div className="system-item"><strong>Tórax/Abdomen:</strong> {visit.systemReview?.thorax_abdomen || '-'}</div><div className="system-item"><strong>Respiratorio:</strong> {visit.systemReview?.respiratory || '-'}</div><div className="system-item"><strong>Cardiovascular:</strong> {visit.systemReview?.cardiovascular || '-'}</div><div className="system-item"><strong>Digestivo:</strong> {visit.systemReview?.digestive || '-'}</div><div className="system-item"><strong>Genitourinario:</strong> {visit.systemReview?.genitourinary || '-'}</div><div className="system-item"><strong>Musculoesquelético:</strong> {visit.systemReview?.musculoskeletal || '-'}</div><div className="system-item"><strong>Piel:</strong> {visit.systemReview?.skin || '-'}</div><div className="system-item"><strong>Nervioso:</strong> {visit.systemReview?.nervous_system || '-'}</div></div></div>)}</div></div>
+          <div className="tab-content">
+            <div className="section-card">
+              <div className="section-header"><h3>Revisión por Sistemas</h3></div>
+              <div className="edit-form">
+                <div className="form-row-2"><div className="form-group"><label>Cabeza y Cuello</label><textarea name="headNeck" value={editData.headNeck} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Oculares</label><textarea name="ocular" value={editData.ocular} onChange={handleEditChange} className="input-field" rows="2" /></div></div>
+                <div className="form-row-2"><div className="form-group"><label>Oídos</label><textarea name="ears" value={editData.ears} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Tórax y Abdomen</label><textarea name="thoraxAbdomen" value={editData.thoraxAbdomen} onChange={handleEditChange} className="input-field" rows="2" /></div></div>
+                <div className="form-row-2"><div className="form-group"><label>Respiratorio</label><textarea name="respiratory" value={editData.respiratory} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Cardiovascular</label><textarea name="cardiovascular" value={editData.cardiovascular} onChange={handleEditChange} className="input-field" rows="2" /></div></div>
+                <div className="form-row-2"><div className="form-group"><label>Digestivo</label><textarea name="digestive" value={editData.digestive} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Genitourinario</label><textarea name="genitourinary" value={editData.genitourinary} onChange={handleEditChange} className="input-field" rows="2" /></div></div>
+                <div className="form-row-2"><div className="form-group"><label>Musculoesquelético</label><textarea name="musculoskeletal" value={editData.musculoskeletal} onChange={handleEditChange} className="input-field" rows="2" /></div><div className="form-group"><label>Piel</label><textarea name="skin" value={editData.skin} onChange={handleEditChange} className="input-field" rows="2" /></div></div>
+                <div className="form-group"><label>Nervioso</label><textarea name="nervousSystem" value={editData.nervousSystem} onChange={handleEditChange} className="input-field" rows="2" /></div>
+                <button className="btn btn-primary" onClick={handleSaveSystemReview}>✓ Guardar y continuar</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'physical-exam' && visit && (
-          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Examen Físico Detallado</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'physical-exam' ? null : 'physical-exam')}>{editingField === 'physical-exam' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'physical-exam' ? (<div className="edit-form"><div className="form-group"><label>Estado General</label><textarea name="generalAppearance" value={editData.generalAppearance} onChange={handleEditChange} className="input-field" rows="3" /></div><div className="form-group"><label>Estado Mental</label><textarea name="mentalStatus" value={editData.mentalStatus} onChange={handleEditChange} className="input-field" rows="3" /></div><div className="form-group"><label>Hallazgos Detallados</label><textarea name="detailedFindings" value={editData.detailedFindings} onChange={handleEditChange} className="input-field" rows="3" /></div><div className="form-group"><label>Hallazgos Anormales</label><textarea name="abnormalities" value={editData.abnormalities} onChange={handleEditChange} className="input-field" rows="3" /></div><button className="btn btn-primary" onClick={handleSavePhysicalExam}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p><strong>Estado General:</strong></p><p>{visit.physicalExam?.general_appearance || '-'}</p><p><strong>Estado Mental:</strong></p><p>{visit.physicalExam?.mental_status || '-'}</p><p><strong>Hallazgos Detallados:</strong></p><p>{visit.physicalExam?.detailed_findings || '-'}</p><p><strong>Hallazgos Anormales:</strong></p><p>{visit.physicalExam?.abnormalities || '-'}</p></div>)}</div></div>
+          <div className="tab-content">
+            <div className="section-card">
+              <div className="section-header"><h3>Examen Físico Detallado</h3></div>
+              <div className="edit-form">
+                <div className="form-group"><label>Estado General</label><textarea name="generalAppearance" value={editData.generalAppearance} onChange={handleEditChange} className="input-field" rows="3" /></div>
+                <div className="form-group"><label>Estado Mental</label><textarea name="mentalStatus" value={editData.mentalStatus} onChange={handleEditChange} className="input-field" rows="3" /></div>
+                <div className="form-group"><label>Hallazgos Detallados</label><textarea name="detailedFindings" value={editData.detailedFindings} onChange={handleEditChange} className="input-field" rows="3" /></div>
+                <div className="form-group"><label>Hallazgos Anormales</label><textarea name="abnormalities" value={editData.abnormalities} onChange={handleEditChange} className="input-field" rows="3" /></div>
+                <button className="btn btn-primary" onClick={handleSavePhysicalExam}>✓ Guardar y continuar</button>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'diagnoses' && visit && (
@@ -591,29 +645,26 @@ export default function VisitDetails() {
         )}
 
         {activeTab === 'recommendations' && visit && (
-          <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Recomendaciones</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'recommendations' ? null : 'recommendations')}>{editingField === 'recommendations' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'recommendations' ? (<div className="edit-form"><div className="form-group"><label>Recomendaciones y Plan de Seguimiento</label><textarea name="recommendations" value={editData.recommendations} onChange={handleEditChange} className="input-field" rows="6" placeholder="Describe las recomendaciones y plan de manejo..." /></div><button className="btn btn-primary" onClick={handleSaveRecommendations}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p>{visit.followUp?.follow_up_reason || 'Sin recomendaciones registradas'}</p></div>)}</div></div>
+          <div className="tab-content">
+            <div className="section-card">
+              <div className="section-header"><h3>Recomendaciones</h3></div>
+              <div className="edit-form">
+                <div className="form-group"><label>Recomendaciones y Plan de Seguimiento</label><textarea name="recommendations" value={editData.recommendations} onChange={handleEditChange} className="input-field" rows="6" placeholder="Describe las recomendaciones y plan de manejo..." /></div>
+                <button className="btn btn-primary" onClick={handleSaveRecommendations}>✓ Guardar y continuar</button>
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* --- PESTAÑA MEDICAMENTOS CON KITS Y GESTIÓN --- */}
+        {/* --- PESTAÑA MEDICAMENTOS --- */}
         {activeTab === 'treatments' && visit && (
           <div className="tab-content">
             <div className="section-card">
               <div className="section-header">
                 <h3>Medicamentos</h3>
                 <div className="header-buttons">
-                  <button 
-                    className="btn-secondary-small" 
-                    onClick={handleCopyLastPrescription}
-                    style={{marginRight: '10px', backgroundColor: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe'}}
-                  >
-                    🔄 Repetir Última
-                  </button>
-                  <button
-                    className="btn-primary-small"
-                    onClick={() => setShowAddTreatment(true)}
-                  >
-                    ➕ Agregar
-                  </button>
+                  <button className="btn-secondary-small" onClick={handleCopyLastPrescription} style={{marginRight: '10px', backgroundColor: '#eef2ff', color: '#6366f1', border: '1px solid #c7d2fe'}}>🔄 Repetir Última</button>
+                  <button className="btn-primary-small" onClick={() => setShowAddTreatment(true)}>➕ Agregar</button>
                 </div>
               </div>
 
@@ -623,56 +674,21 @@ export default function VisitDetails() {
                   <div style={{ flex: 1, minWidth: '200px' }}>
                      <label style={{display:'block', fontSize:'0.85rem', color:'#666', marginBottom:'4px'}}>⚡ Kits Rápidos:</label>
                      <div style={{ display: 'flex', gap: '5px' }}>
-                        <select 
-                            className="input-field" 
-                            style={{width:'100%', margin:0}}
-                            onChange={(e) => {
-                                if(e.target.value) handleApplyKit(e.target.value);
-                                e.target.value = ""; 
-                            }}
-                        >
+                        <select className="input-field" style={{width:'100%', margin:0}} onChange={(e) => { if(e.target.value) handleApplyKit(e.target.value); e.target.value = ""; }}>
                             <option value="">-- Seleccionar un Kit guardado --</option>
-                            {kits.map(kit => (
-                                <option key={kit.id} value={kit.id}>{kit.name} ({kit.medicines?.length || 0} meds)</option>
-                            ))}
+                            {kits.map(kit => (<option key={kit.id} value={kit.id}>{kit.name} ({kit.medicines?.length || 0} meds)</option>))}
                         </select>
-                        
-                        {/* ✅ BOTÓN DE GESTIÓN (NUEVO) */}
-                        <button 
-                            className="btn-secondary-small" 
-                            onClick={() => setShowManageKitsModal(true)} 
-                            title="Gestionar mis Kits"
-                            style={{ padding: '0 12px' }}
-                        >
-                            ⚙️
-                        </button>
+                        <button className="btn-secondary-small" onClick={() => setShowManageKitsModal(true)} title="Gestionar mis Kits" style={{ padding: '0 12px' }}>⚙️</button>
                      </div>
                   </div>
-                  
                   <div style={{ marginTop: '20px' }}>
-                    <button 
-                        className="btn-secondary-small"
-                        onClick={() => setShowSaveKitModal(true)}
-                        disabled={!visit.treatments || visit.treatments.length === 0}
-                        title="Guarda los medicamentos actuales como un nuevo Kit"
-                    >
-                         Guardar como Kit
-                    </button>
+                    <button className="btn-secondary-small" onClick={() => setShowSaveKitModal(true)} disabled={!visit.treatments || visit.treatments.length === 0} title="Guarda los medicamentos actuales como un nuevo Kit">💾 Guardar como Kit</button>
                   </div>
                 </div>
 
-                {/* MODAL GUARDAR RAPIDO */}
                 {showSaveKitModal && (
                    <div style={{ marginTop: '10px', display:'flex', gap:'5px', alignItems:'center', background:'white', padding:'10px', border:'1px solid #ddd', borderRadius:'6px' }}>
-                      <input 
-                         type="text" 
-                         placeholder="Nombre del Kit (Ej: Gripa Adulto)" 
-                         value={kitName} 
-                         onChange={e => setKitName(e.target.value)}
-                         className="input-field"
-                         style={{margin:0, flex:1}}
-                         autoFocus
-                      />
+                      <input type="text" placeholder="Nombre del Kit (Ej: Gripa Adulto)" value={kitName} onChange={e => setKitName(e.target.value)} className="input-field" style={{margin:0, flex:1}} autoFocus />
                       <button className="btn-primary-small" onClick={handleSaveKit}>Guardar</button>
                       <button className="btn-secondary-small" onClick={() => setShowSaveKitModal(false)}>✕</button>
                    </div>
@@ -684,31 +700,17 @@ export default function VisitDetails() {
                   {visit.treatments.map((treatment) => (
                     <div key={treatment.id} className="item-card">
                       <div className="item-header">
-                        <div>
-                          <p><strong>Medicamento:</strong> {treatment.medication_name}</p>
-                          <p><strong>Dosis:</strong> {treatment.dosage}</p>
-                          <p><strong>Vía:</strong> {treatment.route || '-'}</p>
-                          <p><strong>Frecuencia:</strong> {treatment.frequency}</p>
-                          <p><strong>Duración:</strong> {treatment.duration || '-'}</p>
-                          <p><strong>Cantidad:</strong> {treatment.quantity || '-'}</p>
-                          <p><strong>Instrucciones:</strong> {treatment.instructions || '-'}</p>
-                        </div>
-                        <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditTreatment(treatment)} title="Editar">✏️</button>
-                          <button className="btn-delete" onClick={() => handleDeleteTreatment(treatment.id)} title="Eliminar">🗑️</button>
-                        </div>
+                        <div><p><strong>Medicamento:</strong> {treatment.medication_name}</p><p><strong>Dosis:</strong> {treatment.dosage}</p><p><strong>Vía:</strong> {treatment.route || '-'}</p><p><strong>Frecuencia:</strong> {treatment.frequency}</p><p><strong>Duración:</strong> {treatment.duration || '-'}</p><p><strong>Cantidad:</strong> {treatment.quantity || '-'}</p><p><strong>Instrucciones:</strong> {treatment.instructions || '-'}</p></div>
+                        <div className="item-actions"><button className="btn-edit" onClick={() => handleEditTreatment(treatment)} title="Editar">✏️</button><button className="btn-delete" onClick={() => handleDeleteTreatment(treatment.id)} title="Eliminar">🗑️</button></div>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <p className="no-data-message">No hay medicamentos registrados</p>
-              )}
+              ) : (<p className="no-data-message">No hay medicamentos registrados</p>)}
             </div>
           </div>
         )}
 
-        {/* ... (EL CHECKLIST SE MANTIENE IGUAL) ... */}
         {activeTab === 'checklist' && visit && (
           <div className="tab-content"><div className="section-card"><h3>📋 Checklist de Historia Clínica</h3><p className="checklist-subtitle">Verifica que todos los campos estén completos</p><div className="checklist-container"><ul className="checklist-list">{[{ id: 'anamnesis', label: 'Anamnesis', icon: '📝' }, { id: 'vitalSigns', label: 'Signos Vitales', icon: '❤️' }, { id: 'systemReview', label: 'Revisión Sistemas', icon: '🔍' }, { id: 'physicalExam', label: 'Examen Físico', icon: '👨‍⚕️' }, { id: 'diagnoses', label: 'Diagnósticos', icon: '📋' }, { id: 'recommendations', label: 'Recomendaciones', icon: '💊' }, { id: 'treatments', label: 'Medicamentos', icon: '🏥' }].map((section) => { const status = getSectionStatus(section.id); const statusIcon = getStatusIcon(status); return (<li key={section.id} className="checklist-item"><div className="item-left"><span className="section-icon">{section.icon}</span><span className="section-label">{section.label}</span></div><div className={`status-badge status-${status}`} style={{ color: statusIcon.color }} title={statusIcon.label}>{statusIcon.icon}</div></li>); })}</ul><div className="checklist-button-container"><button className={`btn-finalize ${allSectionsComplete() ? 'btn-enabled' : 'btn-disabled'}`} onClick={handleFinalizeConsultation} disabled={!allSectionsComplete()} title={allSectionsComplete() ? 'Finalizar historia clínica' : 'Completa todos los campos primero'}>{allSectionsComplete() ? '✓ Finalizar Historia' : '⚠️ Completa los campos faltantes'}</button></div></div></div></div>
         )}
@@ -717,7 +719,6 @@ export default function VisitDetails() {
         {showAddDiagnosis && <AddDiagnosis visitId={visitId} editingDiagnosis={editingDiagnosis} onDiagnosisAdded={fetchVisitDetails} onClose={handleCloseAddDiagnosis} />}
         {showAddTreatment && <AddTreatment visitId={visitId} editingTreatment={editingTreatment} onTreatmentAdded={fetchVisitDetails} onClose={handleCloseAddTreatment} />}
 
-        {/* ✅ MODAL PARA GESTIONAR KITS (NUEVO) */}
         {showManageKitsModal && (
           <div className="modal-overlay">
             <div className="modal-content" style={{ maxWidth: '500px' }}>
@@ -725,48 +726,22 @@ export default function VisitDetails() {
                 <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Gestionar mis Kits</h3>
                 <button className="btn-secondary-small" onClick={() => setShowManageKitsModal(false)}>✕ Cerrar</button>
               </div>
-              
               <div className="items-list" style={{ maxHeight: '300px', overflowY: 'auto' }}>
                 {kits.length > 0 ? (
                    kits.map(kit => (
                      <div key={kit.id} className="item-card" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding: '10px' }}>
-                        <div>
-                            <span style={{ fontWeight: '600', display: 'block' }}>{kit.name}</span>
-                            <span style={{ fontSize: '0.85rem', color: '#666' }}>{kit.medicines.length} medicamentos</span>
-                        </div>
-                        <button 
-                            className="btn-delete" 
-                            onClick={() => confirmDeleteKit(kit.id)}
-                            style={{ padding: '6px 12px' }}
-                            title="Eliminar este Kit"
-                        >
-                            🗑️
-                        </button>
+                        <div><span style={{ fontWeight: '600', display: 'block' }}>{kit.name}</span><span style={{ fontSize: '0.85rem', color: '#666' }}>{kit.medicines.length} medicamentos</span></div>
+                        <button className="btn-delete" onClick={() => confirmDeleteKit(kit.id)} style={{ padding: '6px 12px' }} title="Eliminar este Kit">🗑️</button>
                      </div>
                    ))
-                ) : (
-                   <p style={{ textAlign: 'center', color: '#888', padding: '20px' }}>No tienes kits guardados aún.</p>
-                )}
+                ) : (<p style={{ textAlign: 'center', color: '#888', padding: '20px' }}>No tienes kits guardados aún.</p>)}
               </div>
             </div>
           </div>
         )}
 
-        <ConfirmModal
-          isOpen={confirmConfig.isOpen}
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-          isDanger={confirmConfig.isDanger}
-          onConfirm={onConfirmAction}
-          onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
-        />
-
-        <SuccessModal
-          isOpen={successConfig.isOpen}
-          title={successConfig.title}
-          message={successConfig.message}
-          onClose={() => setSuccessConfig({ ...successConfig, isOpen: false })}
-        />
+        <ConfirmModal isOpen={confirmConfig.isOpen} title={confirmConfig.title} message={confirmConfig.message} isDanger={confirmConfig.isDanger} onConfirm={onConfirmAction} onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })} />
+        <SuccessModal isOpen={successConfig.isOpen} title={successConfig.title} message={successConfig.message} onClose={() => setSuccessConfig({ ...successConfig, isOpen: false })} />
       </div>
     </div>
   );
