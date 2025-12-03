@@ -3,8 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import AddDiagnosis from './AddDiagnosis';
 import AddTreatment from './AddTreatment';
-import DeleteConfirmModal from '../components/DeleteConfirmModal';
 import ConfirmModal from '../components/ConfirmModal';
+import SuccessModal from '../components/SuccessModal'; // ✅ IMPORTAMOS EL NUEVO MODAL
 import { getNextTabAfterSave, TAB_SEQUENCE } from '../config/tabSequence-config';
 import { validateVitalSigns } from '../utils/visitDetailsHelpers';
 import '../styles/VisitDetails.css';
@@ -25,7 +25,7 @@ export default function VisitDetails() {
   const [editingDiagnosis, setEditingDiagnosis] = useState(null);
   const [editingTreatment, setEditingTreatment] = useState(null);
 
-  // ✅ ESTADOS PARA KITS DE TRATAMIENTO (NUEVO)
+  // ✅ ESTADOS PARA KITS DE TRATAMIENTO
   const [kits, setKits] = useState([]);
   const [kitName, setKitName] = useState('');
   const [showSaveKitModal, setShowSaveKitModal] = useState(false);
@@ -37,6 +37,13 @@ export default function VisitDetails() {
     message: '',
     action: null,
     isDanger: false
+  });
+
+  // ✅ ESTADO PARA EL MODAL DE ÉXITO (NUEVO)
+  const [successConfig, setSuccessConfig] = useState({
+    isOpen: false,
+    title: '',
+    message: ''
   });
 
   // ESTADO PARA NUEVA CONSULTA
@@ -90,9 +97,7 @@ export default function VisitDetails() {
   // --- LÓGICA DE KITS (NUEVO) ---
   const fetchKits = async () => {
     try {
-      const response = await api.get('/kits', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-      });
+      const response = await api.get('/kits');
       setKits(response.data);
     } catch (err) {
       console.error("Error cargando kits:", err);
@@ -106,15 +111,19 @@ export default function VisitDetails() {
     try {
       await api.post('/kits', {
         name: kitName,
-        medicines: visit.treatments // Guardamos la lista actual
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
+        medicines: visit.treatments 
       });
       
-      alert(`✅ Kit "${kitName}" guardado correctamente.`);
+      // ✅ ÉXITO: Usamos el SuccessModal
+      setSuccessConfig({
+        isOpen: true,
+        title: 'Kit Guardado',
+        message: `El kit "${kitName}" se ha guardado correctamente en tus favoritos.`
+      });
+
       setKitName('');
       setShowSaveKitModal(false);
-      fetchKits(); // Recargar la lista
+      fetchKits(); 
     } catch (err) {
       console.error(err);
       alert("Error al guardar el kit.");
@@ -125,16 +134,14 @@ export default function VisitDetails() {
     const selectedKit = kits.find(k => k.id === kitId);
     if (!selectedKit) return;
 
+    // Confirmación nativa simple para la acción de aplicar
     if (!window.confirm(`¿Deseas agregar los medicamentos del kit "${selectedKit.name}" a esta consulta?`)) {
       return;
     }
 
     setLoading(true);
     try {
-      // Recorremos los medicamentos del kit y los agregamos uno por uno
-      // Usamos Promise.all para que sea rápido (en paralelo)
       const promises = selectedKit.medicines.map(med => {
-        // Mapeamos los campos por si el backend espera camelCase pero la BD devuelve snake_case
         const payload = {
           medicationName: med.medication_name || med.medicationName,
           dosage: med.dosage,
@@ -145,15 +152,19 @@ export default function VisitDetails() {
           instructions: med.instructions
         };
         
-        return api.post(`/medical-visits/${visitId}/treatments`, payload, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-        });
+        return api.post(`/medical-visits/${visitId}/treatments`, payload);
       });
 
       await Promise.all(promises);
       
-      alert("✅ Medicamentos del kit agregados.");
-      fetchVisitDetails(); // Recargar para ver los cambios
+      // ✅ ÉXITO: Usamos el SuccessModal
+      setSuccessConfig({
+        isOpen: true,
+        title: 'Kit Aplicado',
+        message: 'Los medicamentos del kit se han agregado a la receta exitosamente.'
+      });
+
+      fetchVisitDetails(); 
     } catch (err) {
       console.error(err);
       alert("Hubo un error al aplicar algunos medicamentos del kit.");
@@ -163,13 +174,11 @@ export default function VisitDetails() {
   };
   
   const handleDeleteKit = async (kitId, e) => {
-    e.stopPropagation(); // Evitar que se active el select si fuera un dropdown custom
+    e.stopPropagation(); 
     if(!window.confirm("¿Eliminar este kit de tus favoritos?")) return;
     
     try {
-        await api.delete(`/kits/${kitId}`, {
-            headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-        });
+        await api.delete(`/kits/${kitId}`);
         fetchKits();
     } catch (err) {
         alert("Error al eliminar kit");
@@ -180,9 +189,7 @@ export default function VisitDetails() {
   const fetchVisitDetails = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/medical-visits/${visitId}/details`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-      });
+      const response = await api.get(`/medical-visits/${visitId}/details`);
       if (response.data.success) {
         setVisit(response.data.visit);
         setEditData({
@@ -229,9 +236,10 @@ export default function VisitDetails() {
   };
 
   const handleCopyLastPrescription = () => {
+    // ✅ LIMPIEZA DE EMOJIS EN TÍTULOS
     setConfirmConfig({
       isOpen: true,
-      title: '🔄 Repetir Receta',
+      title: 'Repetir Receta',
       message: '¿Deseas copiar automáticamente los medicamentos de la última consulta de este paciente?',
       isDanger: false,
       action: executeCopyPrescription
@@ -241,12 +249,15 @@ export default function VisitDetails() {
   const executeCopyPrescription = async () => {
     try {
       setLoading(true);
-      const response = await api.post(`/medical-visits/${visitId}/copy-last-prescription`, {}, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-      });
+      const response = await api.post(`/medical-visits/${visitId}/copy-last-prescription`, {});
 
       if (response.data.success) {
-        alert(response.data.message);
+        // ✅ ÉXITO: Usamos el SuccessModal
+        setSuccessConfig({
+          isOpen: true,
+          title: 'Receta Copiada',
+          message: response.data.message || 'Los medicamentos se han copiado correctamente.'
+        });
         fetchVisitDetails();
       }
     } catch (err) {
@@ -261,9 +272,10 @@ export default function VisitDetails() {
   };
 
   const handleDeleteDiagnosis = (diagnosisId) => {
+    // ✅ LIMPIEZA DE EMOJIS
     setConfirmConfig({
       isOpen: true,
-      title: '🗑️ Eliminar Diagnóstico',
+      title: 'Eliminar Diagnóstico',
       message: '¿Estás seguro de que deseas eliminar este diagnóstico? Esta acción no se puede deshacer.',
       isDanger: true,
       action: () => executeDeleteDiagnosis(diagnosisId)
@@ -273,8 +285,7 @@ export default function VisitDetails() {
   const executeDeleteDiagnosis = async (diagnosisId) => {
     try {
       const response = await api.delete(
-        `/medical-visits/${visitId}/diagnoses/${diagnosisId}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        `/medical-visits/${visitId}/diagnoses/${diagnosisId}`
       );
 
       if (response.data.success) {
@@ -294,9 +305,10 @@ export default function VisitDetails() {
   };
 
   const handleDeleteTreatment = (treatmentId) => {
+    // ✅ LIMPIEZA DE EMOJIS
     setConfirmConfig({
       isOpen: true,
-      title: '🗑️ Eliminar Medicamento',
+      title: 'Eliminar Medicamento',
       message: '¿Estás seguro de que deseas eliminar este medicamento de la receta?',
       isDanger: true,
       action: () => executeDeleteTreatment(treatmentId)
@@ -306,8 +318,7 @@ export default function VisitDetails() {
   const executeDeleteTreatment = async (treatmentId) => {
     try {
       const response = await api.delete(
-        `/medical-visits/${visitId}/treatments/${treatmentId}`,
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        `/medical-visits/${visitId}/treatments/${treatmentId}`
       );
 
       if (response.data.success) {
@@ -353,9 +364,7 @@ export default function VisitDetails() {
         reasonForVisit: newConsultationData.reasonForVisit
       };
 
-      const response = await api.post(`/medical-visits`, payload, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }
-      });
+      const response = await api.post(`/medical-visits`, payload);
 
       if (response.data.success) {
         setConsultationCode(response.data.visit.id);
@@ -433,11 +442,21 @@ export default function VisitDetails() {
     try {
       await api.put(
         `/medical-visits/${visitId}/status`,
-        { status: 'completed' },
-        { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } }
+        { status: 'completed' }
       );
-      alert('✅ Historia clínica finalizada correctamente');
-      navigate(`/visit-summary/${visitId}`);
+      
+      // ✅ ÉXITO: Usamos el SuccessModal
+      setSuccessConfig({
+        isOpen: true,
+        title: 'Historia Finalizada',
+        message: 'La historia clínica se ha cerrado y finalizado correctamente.'
+      });
+      
+      // Redirigir después de 2 segundos para dar tiempo de leer el modal
+      setTimeout(() => {
+          navigate(`/visit-summary/${visitId}`);
+      }, 2000);
+
     } catch (err) {
       alert('❌ Error al finalizar: ' + err.response?.data?.error);
     }
@@ -463,7 +482,7 @@ export default function VisitDetails() {
         currentIllness: editData.currentIllness,
         symptomDuration: editData.symptomDuration,
         symptomSeverity: editData.symptomSeverity
-      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
+      });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('anamnesis');
@@ -495,7 +514,7 @@ export default function VisitDetails() {
         heartRate: parseInt(editData.heartRate),
         respiratoryRate: parseInt(editData.respiratoryRate),
         bodyTemperature: parseFloat(editData.bodyTemperature)
-      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
+      });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('vital-signs');
@@ -516,7 +535,7 @@ export default function VisitDetails() {
         musculoskeletal: editData.musculoskeletal,
         skin: editData.skin,
         nervousSystem: editData.nervousSystem
-      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
+      });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('system-review');
@@ -530,7 +549,7 @@ export default function VisitDetails() {
         mentalStatus: editData.mentalStatus,
         detailedFindings: editData.detailedFindings,
         abnormalities: editData.abnormalities
-      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
+      });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('physical-exam');
@@ -541,7 +560,7 @@ export default function VisitDetails() {
     try {
       await api.put(`/medical-visits/${visitId}/follow-up`, {
         followUpReason: editData.recommendations
-      }, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } });
+      });
       setEditingField(null);
       fetchVisitDetails();
       navigateToNextTab('recommendations');
@@ -638,7 +657,8 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ... TABS DE CONTENIDO ... */}
+        {/* --- AQUÍ ESTÁN TODAS LAS SECCIONES COMPLETAS --- */}
+
         {activeTab === 'anamnesis' && visit && (
           <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Historia de la Enfermedad Actual</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'anamnesis' ? null : 'anamnesis')}>{editingField === 'anamnesis' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'anamnesis' ? (<div className="edit-form"><div className="form-group"><label>Enfermedad Actual</label><textarea name="currentIllness" value={editData.currentIllness} onChange={handleEditChange} rows="4" className="input-field" /></div><div className="form-group"><label>Duración de Síntomas</label><input type="text" name="symptomDuration" value={editData.symptomDuration} onChange={handleEditChange} className="input-field" placeholder="Ej: 3 días" /></div><div className="form-group"><label>Severidad</label><select name="symptomSeverity" value={editData.symptomSeverity} onChange={handleEditChange} className="input-field"><option value="">Selecciona</option><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="severa">Severa</option></select></div><button className="btn btn-primary" onClick={handleSaveAnamnesis}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p><strong>Enfermedad Actual:</strong></p><p>{visit.anamnesis?.current_illness || 'No registrada'}</p><p><strong>Duración:</strong></p><p>{visit.anamnesis?.symptom_duration || '-'}</p><p><strong>Severidad:</strong></p><p>{visit.anamnesis?.symptom_severity || '-'}</p></div>)}</div></div>
         )}
@@ -663,7 +683,6 @@ export default function VisitDetails() {
           <div className="tab-content"><div className="section-card"><div className="section-header"><h3>Recomendaciones</h3><button className={"btn-primary-small"} onClick={() => setEditingField(editingField === 'recommendations' ? null : 'recommendations')}>{editingField === 'recommendations' ? '✕ Cancelar' : ' Editar'}</button></div>{editingField === 'recommendations' ? (<div className="edit-form"><div className="form-group"><label>Recomendaciones y Plan de Seguimiento</label><textarea name="recommendations" value={editData.recommendations} onChange={handleEditChange} className="input-field" rows="6" placeholder="Describe las recomendaciones y plan de manejo..." /></div><button className="btn btn-primary" onClick={handleSaveRecommendations}>✓ Guardar y continuar</button></div>) : (<div className="view-form"><p>{visit.followUp?.follow_up_reason || 'Sin recomendaciones registradas'}</p></div>)}</div></div>
         )}
 
-        {/* ✅ PESTAÑA MEDICAMENTOS MODIFICADA CON KITS */}
         {activeTab === 'treatments' && visit && (
           <div className="tab-content">
             <div className="section-card">
@@ -787,7 +806,7 @@ export default function VisitDetails() {
           />
         )}
 
-        {/* ✅ COMPONENTE MODAL DE CONFIRMACIÓN */}
+        {/* ✅ CONFIRM MODAL (PELIGRO) */}
         <ConfirmModal
           isOpen={confirmConfig.isOpen}
           title={confirmConfig.title}
@@ -795,6 +814,14 @@ export default function VisitDetails() {
           isDanger={confirmConfig.isDanger}
           onConfirm={onConfirmAction}
           onCancel={() => setConfirmConfig({ ...confirmConfig, isOpen: false })}
+        />
+
+        {/* ✅ SUCCESS MODAL (NUEVO) */}
+        <SuccessModal
+          isOpen={successConfig.isOpen}
+          title={successConfig.title}
+          message={successConfig.message}
+          onClose={() => setSuccessConfig({ ...successConfig, isOpen: false })}
         />
       </div>
     </div>
