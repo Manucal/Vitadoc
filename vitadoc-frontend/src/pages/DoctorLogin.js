@@ -15,7 +15,7 @@ export default function DoctorLogin() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
+    setError(''); // Limpiar errores previos
     setLoading(true);
 
     try {
@@ -37,28 +37,38 @@ export default function DoctorLogin() {
         localStorage.setItem('user', JSON.stringify(data.user));
         console.log('💾 Usuario guardado en Local Storage:', data.user);
       }
-      // ============================================================
-
-      // 🛑 NUEVO: Verificar si DEBE cambiar contraseña (SECUESTRO)
+      
+      // 🛑 Verificar si DEBE cambiar contraseña
       if (data.user.must_change_password) {
         console.log('⚠️ Cambio de contraseña obligatorio detectado');
         navigate('/change-password', { replace: true });
         return;
       }
 
-      // Si no, flujo normal
+      // Redirección según rol
       if (data.isSuperAdmin === true) {
-        console.log('🔐 SUPER-ADMIN detectado, redirigiendo a /admin');
         navigate('/admin', { replace: true });
       } else {
-        console.log('👤 Usuario clínica, redirigiendo a /doctor-patient-action');
         navigate('/doctor-patient-action', { replace: true });
       }
+
     } catch (err) {
       console.error('❌ Error en login:', err);
-      setError(err.message || 'Error al iniciar sesión');
+      
+      // === MEJORA DE MENSAJES DE ERROR ===
+      if (err.response && err.response.status === 401) {
+        // Si el error es 401, es credenciales malas
+        setError('🚫 Usuario o contraseña incorrectos. Intenta de nuevo.');
+      } else if (err.message === "Network Error") {
+        // Si el servidor está apagado
+        setError('⚠️ No se pudo conectar con el servidor. Verifica tu internet.');
+      } else {
+        // Cualquier otro error
+        setError(err.response?.data?.error || 'Ocurrió un error al iniciar sesión.');
+      }
+
     } finally {
-      setLoading(false);
+      setLoading(false); // Siempre desbloquear el botón al final
     }
   };
 
@@ -108,14 +118,18 @@ export default function DoctorLogin() {
             />
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {/* Mostrar mensaje de error si existe */}
+          {error && <div className="error-message" style={{ color: '#d32f2f', backgroundColor: '#ffebee', padding: '10px', borderRadius: '4px', marginTop: '10px', fontSize: '0.9rem', textAlign: 'center' }}>
+            {error}
+          </div>}
 
           <button
             type="submit"
             className="btn btn-iniciarsesion btn-full"
             disabled={loading}
+            style={{ marginTop: '20px' }}
           >
-            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+            {loading ? 'Verificando...' : 'Iniciar Sesión'}
           </button>
         </form>
 
