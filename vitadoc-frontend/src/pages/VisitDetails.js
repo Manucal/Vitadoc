@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
+import toast from 'react-hot-toast'; // 👈 IMPORTAMOS TOAST PARA VELOCIDAD
 import AddDiagnosis from './AddDiagnosis';
 import AddTreatment from './AddTreatment';
 import ConfirmModal from '../components/ConfirmModal';
@@ -18,24 +19,20 @@ export default function VisitDetails() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('new-consultation');
   
-  // NOTA: editingField ya no se usa para bloquear pestañas, pero lo mantenemos 
-  // por si quieres usarlo en componentes futuros, aunque en este flujo "Always Edit" no es necesario.
   const [editingField, setEditingField] = useState(null); 
-  
   const [showAddDiagnosis, setShowAddDiagnosis] = useState(false);
   const [showAddTreatment, setShowAddTreatment] = useState(false);
 
-  // Estados para editar diagnósticos y tratamientos
   const [editingDiagnosis, setEditingDiagnosis] = useState(null);
   const [editingTreatment, setEditingTreatment] = useState(null);
 
-  // ESTADOS PARA KITS DE TRATAMIENTO
+  // KITS
   const [kits, setKits] = useState([]);
   const [kitName, setKitName] = useState('');
   const [showSaveKitModal, setShowSaveKitModal] = useState(false);
   const [showManageKitsModal, setShowManageKitsModal] = useState(false);
 
-  // Estado para el modal de confirmación
+  // CONFIGURACIÓN DE MODALES
   const [confirmConfig, setConfirmConfig] = useState({
     isOpen: false,
     title: '',
@@ -44,48 +41,23 @@ export default function VisitDetails() {
     isDanger: false
   });
 
-  // Estado para el modal de éxito
   const [successConfig, setSuccessConfig] = useState({
     isOpen: false,
     title: '',
     message: ''
   });
 
-  // ESTADO PARA NUEVA CONSULTA
-  const [newConsultationData, setNewConsultationData] = useState({
-    reasonForVisit: ''
-  });
+  // ESTADOS CONSULTA
+  const [newConsultationData, setNewConsultationData] = useState({ reasonForVisit: '' });
   const [newConsultationLoading, setNewConsultationLoading] = useState(false);
   const [newConsultationError, setNewConsultationError] = useState('');
   const [consultationCode, setConsultationCode] = useState('');
 
   const [editData, setEditData] = useState({
-    currentIllness: '',
-    symptomDuration: '',
-    symptomSeverity: '',
-    weight: '',
-    height: '',
-    systolicBp: '',
-    diastolicBp: '',
-    heartRate: '',
-    respiratoryRate: '',
-    bodyTemperature: '',
-    headNeck: '',
-    ocular: '',
-    ears: '',
-    thoraxAbdomen: '',
-    respiratory: '',
-    cardiovascular: '',
-    digestive: '',
-    genitourinary: '',
-    musculoskeletal: '',
-    skin: '',
-    nervousSystem: '',
-    generalAppearance: '',
-    mentalStatus: '',
-    detailedFindings: '',
-    abnormalities: '',
-    recommendations: ''
+    currentIllness: '', symptomDuration: '', symptomSeverity: '',
+    weight: '', height: '', systolicBp: '', diastolicBp: '', heartRate: '', respiratoryRate: '', bodyTemperature: '',
+    headNeck: '', ocular: '', ears: '', thoraxAbdomen: '', respiratory: '', cardiovascular: '', digestive: '', genitourinary: '', musculoskeletal: '', skin: '', nervousSystem: '',
+    generalAppearance: '', mentalStatus: '', detailedFindings: '', abnormalities: '', recommendations: ''
   });
 
   useEffect(() => {
@@ -109,8 +81,8 @@ export default function VisitDetails() {
   };
 
   const handleSaveKit = async () => {
-    if (!kitName.trim()) return alert("Por favor, ponle un nombre al Kit.");
-    if (!visit.treatments || visit.treatments.length === 0) return alert("No hay medicamentos para guardar.");
+    if (!kitName.trim()) return toast.error("Ponle un nombre al Kit");
+    if (!visit.treatments || visit.treatments.length === 0) return toast.error("No hay medicamentos para guardar");
 
     try {
       await api.post('/kits', {
@@ -118,27 +90,32 @@ export default function VisitDetails() {
         medicines: visit.treatments
       });
       
-      setSuccessConfig({
-        isOpen: true,
-        title: 'Kit Guardado',
-        message: `El kit "${kitName}" se ha guardado correctamente.`
-      });
-
+      // ✅ USO DE TOAST (Rápido, no bloquea)
+      toast.success(`Kit "${kitName}" guardado`);
       setKitName('');
       setShowSaveKitModal(false);
       fetchKits();
     } catch (err) {
-      console.error(err);
-      alert("Error al guardar el kit.");
+      toast.error("Error al guardar el kit");
     }
   };
 
-  const handleApplyKit = async (kitId) => {
+  // 1. INICIAR APLICACIÓN DE KIT (Abre el modal bonito de pregunta)
+  const initiateApplyKit = (kitId) => {
     const selectedKit = kits.find(k => k.id === kitId);
     if (!selectedKit) return;
 
-    if (!window.confirm(`¿Deseas cargar el kit "${selectedKit.name}"?`)) return;
+    setConfirmConfig({
+        isOpen: true,
+        title: 'Cargar Kit',
+        message: `¿Deseas cargar los medicamentos del kit "${selectedKit.name}"?`,
+        isDanger: false, // No es peligroso (es azul/verde)
+        action: () => executeApplyKit(selectedKit)
+    });
+  };
 
+  // 2. EJECUTAR APLICACIÓN (Lo que pasa al dar "Aceptar")
+  const executeApplyKit = async (selectedKit) => {
     setLoading(true);
     try {
       const promises = selectedKit.medicines.map(med => {
@@ -156,18 +133,14 @@ export default function VisitDetails() {
 
       await Promise.all(promises);
       
-      setSuccessConfig({
-        isOpen: true,
-        title: 'Kit Aplicado',
-        message: 'Los medicamentos del kit se han agregado a la receta exitosamente.'
-      });
-
+      // ✅ TOAST DE ÉXITO (Fluidez total)
+      toast.success('Kit aplicado correctamente');
       fetchVisitDetails();
     } catch (err) {
-      console.error(err);
-      alert("Error al aplicar kit.");
+      toast.error("Error al aplicar kit");
     } finally {
       setLoading(false);
+      setConfirmConfig({ ...confirmConfig, isOpen: false }); // Cerrar modal pregunta
     }
   };
   
@@ -175,7 +148,7 @@ export default function VisitDetails() {
     setConfirmConfig({
       isOpen: true,
       title: 'Eliminar Kit',
-      message: '¿Estás seguro de eliminar este kit de tratamientos? Esta acción no se puede deshacer.',
+      message: '¿Estás seguro de eliminar este kit? No se puede deshacer.',
       isDanger: true,
       action: () => executeDeleteKit(kitId)
     });
@@ -184,14 +157,12 @@ export default function VisitDetails() {
   const executeDeleteKit = async (kitId) => {
     try {
         await api.delete(`/kits/${kitId}`);
-        setSuccessConfig({
-          isOpen: true,
-          title: 'Kit Eliminado',
-          message: 'El kit ha sido eliminado de tu lista correctamente.'
-        });
-        fetchKits(); 
+        toast.success('Kit eliminado');
+        fetchKits();
     } catch (err) {
-        alert("Error al eliminar kit");
+        toast.error("Error al eliminar kit");
+    } finally {
+        setConfirmConfig({ ...confirmConfig, isOpen: false });
     }
   };
   // -----------------------------
@@ -202,7 +173,6 @@ export default function VisitDetails() {
       const response = await api.get(`/medical-visits/${visitId}/details`);
       if (response.data.success) {
         setVisit(response.data.visit);
-        // Llenamos el formulario con los datos existentes
         setEditData({
           currentIllness: response.data.visit.anamnesis?.current_illness || '',
           symptomDuration: response.data.visit.anamnesis?.symptom_duration || '',
@@ -243,14 +213,15 @@ export default function VisitDetails() {
     if (confirmConfig.action) {
       confirmConfig.action();
     }
-    setConfirmConfig({ ...confirmConfig, isOpen: false });
+    // No cerramos aquí para evitar parpadeos si la acción es asíncrona, 
+    // la acción debe encargarse o lo cerramos manual en finally
   };
 
   const handleCopyLastPrescription = () => {
     setConfirmConfig({
       isOpen: true,
       title: 'Repetir Receta',
-      message: '¿Deseas copiar automáticamente los medicamentos de la última consulta de este paciente?',
+      message: '¿Copiar medicamentos de la última consulta?',
       isDanger: false,
       action: executeCopyPrescription
     });
@@ -260,18 +231,15 @@ export default function VisitDetails() {
     try {
       setLoading(true);
       const response = await api.post(`/medical-visits/${visitId}/copy-last-prescription`, {});
-
       if (response.data.success) {
-        setSuccessConfig({
-          isOpen: true,
-          title: 'Receta Copiada',
-          message: response.data.message || 'Los medicamentos se han copiado correctamente.'
-        });
+        toast.success('Receta copiada exitosamente');
         fetchVisitDetails();
       }
     } catch (err) {
-      alert(err.response?.data?.error || 'No se pudo copiar la receta anterior');
+      toast.error('No se pudo copiar la receta');
       setLoading(false);
+    } finally {
+        setConfirmConfig({ ...confirmConfig, isOpen: false });
     }
   };
 
@@ -284,7 +252,7 @@ export default function VisitDetails() {
     setConfirmConfig({
       isOpen: true,
       title: 'Eliminar Diagnóstico',
-      message: '¿Estás seguro de que deseas eliminar este diagnóstico? Esta acción no se puede deshacer.',
+      message: '¿Eliminar este diagnóstico?',
       isDanger: true,
       action: () => executeDeleteDiagnosis(diagnosisId)
     });
@@ -298,9 +266,12 @@ export default function VisitDetails() {
           ...prev,
           diagnoses: prev.diagnoses.filter(d => d.id !== diagnosisId)
         }));
+        toast.success('Diagnóstico eliminado');
       }
     } catch (err) {
-      alert(`Error al eliminar diagnóstico: ${err.response?.data?.error || err.message}`);
+      toast.error('Error al eliminar');
+    } finally {
+        setConfirmConfig({ ...confirmConfig, isOpen: false });
     }
   };
 
@@ -313,7 +284,7 @@ export default function VisitDetails() {
     setConfirmConfig({
       isOpen: true,
       title: 'Eliminar Medicamento',
-      message: '¿Estás seguro de que deseas eliminar este medicamento de la receta?',
+      message: '¿Eliminar este medicamento?',
       isDanger: true,
       action: () => executeDeleteTreatment(treatmentId)
     });
@@ -327,9 +298,12 @@ export default function VisitDetails() {
           ...prev,
           treatments: prev.treatments.filter(t => t.id !== treatmentId)
         }));
+        toast.success('Medicamento eliminado');
       }
     } catch (err) {
-      alert(`Error al eliminar medicamento: ${err.response?.data?.error || err.message}`);
+      toast.error('Error al eliminar');
+    } finally {
+        setConfirmConfig({ ...confirmConfig, isOpen: false });
     }
   };
 
@@ -369,6 +343,7 @@ export default function VisitDetails() {
         setConsultationCode(response.data.visit.id);
         setActiveTab('anamnesis');
         navigate(`/visit-details/${patientId}/${response.data.visit.id}`);
+        toast.success('Consulta creada');
       }
     } catch (err) {
       console.error('Error creating consultation:', err);
@@ -409,19 +384,22 @@ export default function VisitDetails() {
 
   const handleFinalizeConsultation = async () => {
     if (!allSectionsComplete()) {
-      alert('⚠️ Por favor completa todos los campos de la historia clínica');
+      toast.error('Completa todos los campos primero');
       return;
     }
     try {
       await api.put(`/medical-visits/${visitId}/status`, { status: 'completed' });
+      
+      // ✅ AQUI SÍ MANTENEMOS EL MODAL GRANDE (Es un evento importante)
       setSuccessConfig({
         isOpen: true,
         title: 'Historia Finalizada',
         message: 'La historia clínica se ha cerrado y finalizado correctamente.'
       });
+      
       setTimeout(() => { navigate(`/visit-summary/${visitId}`); }, 2000);
     } catch (err) {
-      alert('Error al finalizar: ' + err.response?.data?.error);
+      toast.error('Error al finalizar: ' + err.response?.data?.error);
     }
   };
 
@@ -434,12 +412,11 @@ export default function VisitDetails() {
     const nextTabId = getNextTabAfterSave(currentTabId);
     if (nextTabId) {
       setActiveTab(nextTabId);
-      setEditingField(null); // Esto ya no es necesario pero no estorba
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
-  // --- FUNCIONES DE GUARDADO (Ahora guardan y pasan a la siguiente pestaña sin cerrar nada) ---
+  // --- GUARDADO RÁPIDO (SIN VENTANAS MOLESTAS) ---
   const handleSaveAnamnesis = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/anamnesis`, {
@@ -448,63 +425,58 @@ export default function VisitDetails() {
         symptomSeverity: editData.symptomSeverity
       });
       fetchVisitDetails();
-      navigateToNextTab('anamnesis'); // Guarda y salta a la siguiente
-    } catch (err) { alert('Error al guardar: ' + err.response?.data?.error); }
+      toast.success('Anamnesis guardada'); // Notificación discreta
+      navigateToNextTab('anamnesis');
+    } catch (err) { toast.error('Error al guardar'); }
   };
 
   const handleSaveVitalSigns = async () => {
     try {
       const validationErrors = validateVitalSigns({
-        weight: editData.weight,
-        height: editData.height,
-        systolicBp: editData.systolicBp,
-        diastolicBp: editData.diastolicBp,
-        heartRate: editData.heartRate,
-        respiratoryRate: editData.respiratoryRate,
-        bodyTemperature: editData.bodyTemperature
+        weight: editData.weight, height: editData.height, systolicBp: editData.systolicBp, diastolicBp: editData.diastolicBp,
+        heartRate: editData.heartRate, respiratoryRate: editData.respiratoryRate, bodyTemperature: editData.bodyTemperature
       });
 
       if (validationErrors.length > 0) {
-        alert('⚠️ Errores en los datos:\n\n' + validationErrors.join('\n'));
+        toast.error('Datos inválidos en signos vitales');
         return;
       }
 
       await api.put(`/medical-visits/${visitId}/vital-signs`, {
-        weight: parseFloat(editData.weight),
-        height: parseInt(editData.height),
-        systolicBp: parseInt(editData.systolicBp),
-        diastolicBp: parseInt(editData.diastolicBp),
-        heartRate: parseInt(editData.heartRate),
-        respiratoryRate: parseInt(editData.respiratoryRate),
-        bodyTemperature: parseFloat(editData.bodyTemperature)
+        weight: parseFloat(editData.weight), height: parseInt(editData.height), systolicBp: parseInt(editData.systolicBp), diastolicBp: parseInt(editData.diastolicBp),
+        heartRate: parseInt(editData.heartRate), respiratoryRate: parseInt(editData.respiratoryRate), bodyTemperature: parseFloat(editData.bodyTemperature)
       });
       fetchVisitDetails();
+      toast.success('Signos vitales guardados');
       navigateToNextTab('vital-signs');
-    } catch (err) { alert('Error al guardar.'); }
+    } catch (err) { toast.error('Error al guardar'); }
   };
 
   const handleSaveSystemReview = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/system-review`, { ...editData });
       fetchVisitDetails();
+      toast.success('Revisión guardada');
       navigateToNextTab('system-review');
-    } catch (err) { alert('Error al guardar.'); }
+    } catch (err) { toast.error('Error al guardar'); }
   };
 
   const handleSavePhysicalExam = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/physical-exam`, { ...editData });
       fetchVisitDetails();
+      toast.success('Examen físico guardado');
       navigateToNextTab('physical-exam');
-    } catch (err) { alert('Error al guardar.'); }
+    } catch (err) { toast.error('Error al guardar'); }
   };
 
   const handleSaveRecommendations = async () => {
     try {
       await api.put(`/medical-visits/${visitId}/follow-up`, { followUpReason: editData.recommendations });
       fetchVisitDetails();
+      toast.success('Recomendaciones guardadas');
       navigateToNextTab('recommendations');
-    } catch (err) { alert('Error al guardar.'); }
+    } catch (err) { toast.error('Error al guardar'); }
   };
 
   const handleBack = () => {
@@ -550,11 +522,7 @@ export default function VisitDetails() {
                <div className="new-consultation-container">
                  <h3>Nueva Consulta Médica</h3>
                  {newConsultationError && <div className="error-message">{newConsultationError}</div>}
-                 {visit ? (
-                   <div className="consultation-created">
-                     <p>Consulta creada exitosamente.</p>
-                   </div>
-                 ) : (
+                 {visit ? (<div className="consultation-created"><p>Consulta creada exitosamente.</p></div>) : (
                    <form onSubmit={handleCreateNewConsultation}>
                      <div className="form-group">
                        <label>Motivo de la Consulta *</label>
@@ -568,8 +536,7 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* --- PESTAÑAS SIEMPRE EDITABLES (SIN BOTÓN EDITAR NI MODO LECTURA) --- */}
-        
+        {/* --- PESTAÑAS ALWAYS-EDIT --- */}
         {activeTab === 'anamnesis' && visit && (
           <div className="tab-content">
             <div className="section-card">
@@ -656,7 +623,6 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* --- PESTAÑA MEDICAMENTOS --- */}
         {activeTab === 'treatments' && visit && (
           <div className="tab-content">
             <div className="section-card">
@@ -668,13 +634,12 @@ export default function VisitDetails() {
                 </div>
               </div>
 
-              {/* BARRA DE KITS */}
               <div className="kit-toolbar" style={{ backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', marginBottom: '16px', border: '1px solid #e5e7eb' }}>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '200px' }}>
                      <label style={{display:'block', fontSize:'0.85rem', color:'#666', marginBottom:'4px'}}>⚡ Kits Rápidos:</label>
                      <div style={{ display: 'flex', gap: '5px' }}>
-                        <select className="input-field" style={{width:'100%', margin:0}} onChange={(e) => { if(e.target.value) handleApplyKit(e.target.value); e.target.value = ""; }}>
+                        <select className="input-field" style={{width:'100%', margin:0}} onChange={(e) => { if(e.target.value) initiateApplyKit(e.target.value); e.target.value = ""; }}>
                             <option value="">-- Seleccionar un Kit guardado --</option>
                             {kits.map(kit => (<option key={kit.id} value={kit.id}>{kit.name} ({kit.medicines?.length || 0} meds)</option>))}
                         </select>
@@ -700,7 +665,7 @@ export default function VisitDetails() {
                   {visit.treatments.map((treatment) => (
                     <div key={treatment.id} className="item-card">
                       <div className="item-header">
-                        <div><p><strong>Medicamento:</strong> {treatment.medication_name}</p><p><strong>Dosis:</strong> {treatment.dosage}</p><p><strong>Vía:</strong> {treatment.route || '-'}</p><p><strong>Frecuencia:</strong> {treatment.frequency}</p><p><strong>Duración:</strong> {treatment.duration || '-'}</p><p><strong>Cantidad:</strong> {treatment.quantity || '-'}</p><p><strong>Instrucciones:</strong> {treatment.instructions || '-'}</p></div>
+                        <div><p><strong>{treatment.medication_name}</strong> ({treatment.dosage})</p><p>{treatment.frequency} durante {treatment.duration}</p></div>
                         <div className="item-actions"><button className="btn-edit" onClick={() => handleEditTreatment(treatment)} title="Editar">✏️</button><button className="btn-delete" onClick={() => handleDeleteTreatment(treatment.id)} title="Eliminar">🗑️</button></div>
                       </div>
                     </div>
@@ -711,11 +676,11 @@ export default function VisitDetails() {
           </div>
         )}
 
+        {/* ... (EL CHECKLIST Y MODALES FLOTANTES SIGUEN IGUAL) ... */}
         {activeTab === 'checklist' && visit && (
           <div className="tab-content"><div className="section-card"><h3>📋 Checklist de Historia Clínica</h3><p className="checklist-subtitle">Verifica que todos los campos estén completos</p><div className="checklist-container"><ul className="checklist-list">{[{ id: 'anamnesis', label: 'Anamnesis', icon: '📝' }, { id: 'vitalSigns', label: 'Signos Vitales', icon: '❤️' }, { id: 'systemReview', label: 'Revisión Sistemas', icon: '🔍' }, { id: 'physicalExam', label: 'Examen Físico', icon: '👨‍⚕️' }, { id: 'diagnoses', label: 'Diagnósticos', icon: '📋' }, { id: 'recommendations', label: 'Recomendaciones', icon: '💊' }, { id: 'treatments', label: 'Medicamentos', icon: '🏥' }].map((section) => { const status = getSectionStatus(section.id); const statusIcon = getStatusIcon(status); return (<li key={section.id} className="checklist-item"><div className="item-left"><span className="section-icon">{section.icon}</span><span className="section-label">{section.label}</span></div><div className={`status-badge status-${status}`} style={{ color: statusIcon.color }} title={statusIcon.label}>{statusIcon.icon}</div></li>); })}</ul><div className="checklist-button-container"><button className={`btn-finalize ${allSectionsComplete() ? 'btn-enabled' : 'btn-disabled'}`} onClick={handleFinalizeConsultation} disabled={!allSectionsComplete()} title={allSectionsComplete() ? 'Finalizar historia clínica' : 'Completa todos los campos primero'}>{allSectionsComplete() ? '✓ Finalizar Historia' : '⚠️ Completa los campos faltantes'}</button></div></div></div></div>
         )}
 
-        {/* COMPONENTES FLOTANTES */}
         {showAddDiagnosis && <AddDiagnosis visitId={visitId} editingDiagnosis={editingDiagnosis} onDiagnosisAdded={fetchVisitDetails} onClose={handleCloseAddDiagnosis} />}
         {showAddTreatment && <AddTreatment visitId={visitId} editingTreatment={editingTreatment} onTreatmentAdded={fetchVisitDetails} onClose={handleCloseAddTreatment} />}
 
