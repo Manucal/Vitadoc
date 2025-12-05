@@ -339,14 +339,37 @@ export default function VisitDetails() {
     }
   };
 
-  const handleFinalizeConsultation = async () => {
-    // Verificación rápida de campos llenos
-    const allSectionsComplete = () => {
-        if (!visit) return false;
-        // Esta es una validación simple, puedes expandirla según tus reglas
-        return true; 
-    };
+  // ✅ FUNCIONES RESTAURADAS PARA QUE EL CHECKLIST FUNCIONE
+  const getSectionStatus = (section) => {
+    if (!visit) return 'empty';
+    switch (section) {
+      case 'anamnesis': return visit.anamnesis?.current_illness?.trim() ? 'complete' : 'empty';
+      case 'vitalSigns': return (visit.vitalSigns?.weight && visit.vitalSigns?.systolic_bp) ? 'complete' : 'empty';
+      case 'systemReview': return (visit.systemReview?.head_neck) ? 'complete' : 'empty'; 
+      case 'physicalExam': return visit.physicalExam?.general_appearance?.trim() ? 'complete' : 'empty';
+      case 'diagnoses': return visit.diagnoses?.length > 0 ? 'complete' : 'empty';
+      case 'recommendations': return visit.followUp?.follow_up_reason?.trim() ? 'complete' : 'empty';
+      case 'treatments': return visit.treatments?.length > 0 ? 'complete' : 'empty';
+      default: return 'empty';
+    }
+  };
 
+  const allSectionsComplete = () => {
+    if (!visit) return false;
+    const sections = ['anamnesis', 'vitalSigns', 'systemReview', 'physicalExam', 'diagnoses', 'recommendations', 'treatments'];
+    return sections.every(section => getSectionStatus(section) === 'complete');
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'complete': return { icon: '✓', color: '#16a34a', label: 'Completo' };
+      case 'partial': return { icon: '⊙', color: '#ea580c', label: 'Parcial' };
+      case 'empty': return { icon: '✕', color: '#dc2626', label: 'Incompleto' };
+      default: return { icon: '?', color: '#999', label: 'Desconocido' };
+    }
+  };
+
+  const handleFinalizeConsultation = async () => {
     if (!allSectionsComplete()) {
       toast.error('Completa todos los campos primero');
       return;
@@ -444,16 +467,8 @@ export default function VisitDetails() {
 
   return (
     <div className="page-center">
-      {/* ✅ CORRECCIÓN DE "SALTO" DE PANTALLA:
-         Agregamos minHeight al contenedor principal para que si la pestaña está vacía,
-         la caja blanca mantenga su tamaño y el botón de atrás no "brinque".
-      */}
       <div className="visit-details-container" style={{ minHeight: '600px' }}>
         
-        {/* ✅ HEADER REDISEÑADO CON GRID: 
-           Esto asegura que el título SIEMPRE esté centrado y el botón SIEMPRE a la izquierda,
-           sin importar el ancho de la pantalla.
-        */}
         <div className="details-header" style={{ 
             display: 'grid', 
             gridTemplateColumns: '1fr auto 1fr', 
@@ -461,7 +476,6 @@ export default function VisitDetails() {
             marginBottom: '20px' 
         }}>
           
-          {/* Columna Izquierda: Botón Atrás */}
           <div style={{ justifySelf: 'start' }}>
             <button 
                 onClick={handleBack} 
@@ -481,7 +495,6 @@ export default function VisitDetails() {
             </button>
           </div>
 
-          {/* Columna Central: Título */}
           <div style={{ textAlign: 'center' }}>
             <h2 style={{ margin: 0, color: '#111827', fontSize: '1.5rem', fontWeight: '700' }}>Detalle de Consulta</h2>
             <p className="details-subtitle" style={{ marginTop: '4px', color: '#6b7280', fontSize: '0.9rem' }}>
@@ -491,7 +504,6 @@ export default function VisitDetails() {
             </p>
           </div>
 
-          {/* Columna Derecha: Espacio vacío para equilibrar el Grid */}
           <div></div>
         </div>
 
@@ -666,7 +678,7 @@ export default function VisitDetails() {
           </div>
         )}
 
-        {/* ... (EL CHECKLIST Y MODALES FLOTANTES SIGUEN IGUAL) ... */}
+        {/* --- CHECKLIST (YA FUNCIONA PORQUE AGREGUÉ getSectionStatus) --- */}
         {activeTab === 'checklist' && visit && (
           <div className="tab-content"><div className="section-card"><h3>📋 Checklist de Historia Clínica</h3><p className="checklist-subtitle">Verifica que todos los campos estén completos</p><div className="checklist-container"><ul className="checklist-list">{[{ id: 'anamnesis', label: 'Anamnesis', icon: '📝' }, { id: 'vitalSigns', label: 'Signos Vitales', icon: '❤️' }, { id: 'systemReview', label: 'Revisión Sistemas', icon: '🔍' }, { id: 'physicalExam', label: 'Examen Físico', icon: '👨‍⚕️' }, { id: 'diagnoses', label: 'Diagnósticos', icon: '📋' }, { id: 'recommendations', label: 'Recomendaciones', icon: '💊' }, { id: 'treatments', label: 'Medicamentos', icon: '🏥' }].map((section) => { const status = getSectionStatus(section.id); const statusIcon = getStatusIcon(status); return (<li key={section.id} className="checklist-item"><div className="item-left"><span className="section-icon">{section.icon}</span><span className="section-label">{section.label}</span></div><div className={`status-badge status-${status}`} style={{ color: statusIcon.color }} title={statusIcon.label}>{statusIcon.icon}</div></li>); })}</ul><div className="checklist-button-container"><button className={`btn-finalize ${allSectionsComplete() ? 'btn-enabled' : 'btn-disabled'}`} onClick={handleFinalizeConsultation} disabled={!allSectionsComplete()} title={allSectionsComplete() ? 'Finalizar historia clínica' : 'Completa todos los campos primero'}>{allSectionsComplete() ? '✓ Finalizar Historia' : '⚠️ Completa los campos faltantes'}</button></div></div></div></div>
         )}
