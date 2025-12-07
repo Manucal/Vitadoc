@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import DoctorTypeSelection from './pages/DoctorTypeSelection';
+// Se eliminó DoctorTypeSelection porque ya no es la página de inicio
 import DoctorLogin from './pages/DoctorLogin';
 import DoctorPatientAction from './pages/DoctorPatientAction';
 import AdminPage from './pages/AdminPage';
@@ -25,11 +25,8 @@ function App() {
     <Router>
       <AuthProvider>
         <Routes>
-          {/* ===== INICIO ===== */}
-          <Route path="/" element={<Navigate to="/doctor-type-selection" replace />} />
-          
-          {/* ===== SELECCIÓN DE TIPO ===== */}
-          <Route path="/doctor-type-selection" element={<DoctorTypeSelection />} />
+          {/* ===== INICIO: Redirige directamente al Login ===== */}
+          <Route path="/" element={<Navigate to="/doctor-login" replace />} />
           
           {/* ===== LOGIN CLÍNICA (sin protección, es público) ===== */}
           <Route path="/doctor-login" element={<DoctorLogin />} />
@@ -125,7 +122,7 @@ function App() {
         </Routes>
 
         {/* ============================================ */}
-        {/* TOAST NOTIFICATIONS PROVIDER ✨ NUEVO       */
+        {/* TOAST NOTIFICATIONS PROVIDER                 */
         /* ============================================ */}
         <Toaster
           position="top-right"
