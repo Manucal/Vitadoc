@@ -11,7 +11,8 @@ export default function DoctorLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const doctorType = localStorage.getItem('doctorType');
+  // Eliminamos 'doctorType' porque ya no necesitamos diferenciar el título
+  // const doctorType = localStorage.getItem('doctorType'); 
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -72,23 +73,20 @@ export default function DoctorLogin() {
     }
   };
 
-  const handleBack = () => {
-    localStorage.removeItem('doctorType');
-    navigate('/doctor-type-selection');
-  };
+  // Eliminamos 'handleBack' porque ya no hay página anterior a la que volver
 
   return (
     <div className="page-center">
       <div className="doctor-login-container">
-        <button className="back-button" onClick={handleBack}>
-          ← Atrás
-        </button>
+        {/* Botón Atrás ELIMINADO: Esta es la página principal ahora */}
 
         <div className="login-header">
           <img src="/logotipo.png" alt="VitaDoc" className="logo" />
-          <p className="login-subtitle">
-            {doctorType === 'clinic' ? ' Médico de Clínica' : ' Médico Privado'}
-          </p>
+          
+          {/* CAMBIO DE TEXTO: Mensaje de bienvenida profesional */}
+          <h2 className="login-title" style={{ marginTop: '15px', color: '#1f2937', fontSize: '1.5rem' }}>
+            Bienvenido de nuevo
+          </h2>
         </div>
 
         <form onSubmit={handleLogin} className="login-form">
